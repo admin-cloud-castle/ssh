@@ -142,7 +142,7 @@
         "test:mutation": [
             "Composer\\Config::disableProcessTimeout",
             "@putenv XDEBUG_MODE=coverage",
-            "php -d memory_limit=3G vendor/bin/infection --configuration=infection.json.dist --threads=max --show-mutations"
+            "php -d memory_limit=3G vendor/bin/infection --configuration=infection.json.dist --threads=1 --show-mutations"
         ],
         "test:performance": "phpunit --testsuite performance",
         "test:security": "phpunit --testsuite security",
