@@ -100,11 +100,7 @@ final class ProcessPool
         $length = unpack('Nlen', $header);
         $need = is_array($length) ? ($length['len'] ?? null) : null;
 
-        if (!is_int($need)) {
-            return '';
-        }
-
-        if ($need < 1) {
+        if (!is_int($need) || $need < 1) {
             return '';
         }
 
@@ -114,12 +110,7 @@ final class ProcessPool
         /** @infection-ignore-all */
         while (strlen($body) < $need) {
             /** @infection-ignore-all */
-            $remain = $need - strlen($body);
-
-            if ($remain < 1) {
-                break;
-            }
-
+            $remain = max(1, $need - strlen($body));
             $chunk = fread($stream, $remain);
 
             if (!is_string($chunk) || $chunk === '') {

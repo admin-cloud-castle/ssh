@@ -15,8 +15,10 @@ use CloudCastle\Ssh\Forward\LocalPortForward;
 use CloudCastle\Ssh\Pool\SessionPool;
 use CloudCastle\Ssh\Process\ProcessPool;
 use CloudCastle\Ssh\Scp\ScpClient;
+use CloudCastle\Ssh\Security\EndpointGuard;
 use CloudCastle\Ssh\Ssh;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
@@ -41,6 +43,7 @@ use ReflectionProperty;
 #[CoversClass(AuthCredentials::class)]
 #[CoversClass(ConnectionOptions::class)]
 #[CoversClass(SessionFactory::class)]
+#[UsesClass(EndpointGuard::class)]
 final class SshFacadeTest extends TestCase
 {
     public function testNameAndAbort(): void

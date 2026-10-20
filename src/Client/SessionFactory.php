@@ -17,7 +17,7 @@ use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Session\NativeSession;
 
 /**
- * Фабрика нативных SSH-сессий: SSRF-guard, TCP connect, handshake/auth, host-key verify.
+ * Фабрика нативных SSH-сессий: SSRF-guard, TCP connect, handshake, host-key verify, затем auth.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
@@ -42,7 +42,7 @@ final class SessionFactory implements SessionFactoryInterface
     }
 
     /**
-     * Устанавливает TCP, поднимает NativeSession и проверяет host key.
+     * Устанавливает TCP, поднимает NativeSession, проверяет host key, затем login.
      *
      * @param string                 $endpoint Цель connect
      * @param AuthCredentials        $auth     Password или publickey
@@ -79,8 +79,9 @@ final class SessionFactory implements SessionFactoryInterface
         }
 
         stream_set_timeout($stream, max(1, (int) $options->ioTimeout()));
-        $session = new NativeSession($stream, $auth);
+        $session = new NativeSession($stream);
         $this->hostKeys->verify($session->hostKeyFingerprint(), $options);
+        $session->login($auth);
         $session->bindEndpoint($endpoint);
 
         return $session;

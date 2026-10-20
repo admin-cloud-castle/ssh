@@ -95,6 +95,7 @@ final class EndpointGuardTest extends TestCase
         self::assertSame('::1', $guard->extractHost('[::1]:22'));
         self::assertSame(22, $guard->extractPort('[::1]:22'));
         self::assertSame(22, $guard->extractPort('host'));
+        self::assertSame(22, $guard->extractPort('[::1'));
     }
 
     public function testControlCharsRejected(): void

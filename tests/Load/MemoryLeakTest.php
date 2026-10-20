@@ -9,11 +9,17 @@ use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Pool\SessionPool;
 use CloudCastle\Ssh\Security\EndpointGuard;
+use CloudCastle\Ssh\Security\HostKeyVerifier;
+use CloudCastle\Ssh\Security\PinnedEndpoint;
+use CloudCastle\Ssh\Session\NativeSession;
 use CloudCastle\Ssh\Ssh;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
 use CloudCastle\Ssh\Tools\PackageMemoryMeter;
+use CloudCastle\Ssh\Wire\SshBinary;
+use CloudCastle\Ssh\Wire\SshWire;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,6 +35,14 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(SessionPool::class)]
 #[CoversClass(Ssh::class)]
 #[CoversClass(EndpointGuard::class)]
+#[UsesClass(AuthCredentials::class)]
+#[UsesClass(ConnectionOptions::class)]
+#[UsesClass(HostKeyVerifier::class)]
+#[UsesClass(PinnedEndpoint::class)]
+#[UsesClass(NativeSession::class)]
+#[UsesClass(SshBinary::class)]
+#[UsesClass(SshWire::class)]
+#[UsesClass(MockSshPeer::class)]
 #[Group('load')]
 final class MemoryLeakTest extends TestCase
 {

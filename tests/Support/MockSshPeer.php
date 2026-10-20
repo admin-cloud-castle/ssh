@@ -48,16 +48,20 @@ final class MockSshPeer
         }
 
         $script = __DIR__ . '/mock-ssh-tcp.php';
-        $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' ' . escapeshellarg($portFile);
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
         $pipes = [];
-        // Фиксированный PHP-скрипты тестов (не пользовательский ввод).
+        // Фиксированный PHP-скрипт тестов; argv без shell.
         // nosemgrep: php.lang.security.exec-use.exec-use, php_exec_rule-exec-use
-        $process = proc_open($cmd, $descriptors, $pipes, dirname(__DIR__, 2));
+        $process = proc_open(
+            [PHP_BINARY, $script, $portFile],
+            $descriptors,
+            $pipes,
+            dirname(__DIR__, 2),
+        );
 
         if ($process === false) {
             throw new MockSshException('proc_open mock server failed');

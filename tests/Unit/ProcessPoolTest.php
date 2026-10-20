@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Tests\Unit;
 
 use CloudCastle\Ssh\Process\ProcessPool;
+use CloudCastle\Ssh\Tests\Support\TempPath;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -17,6 +18,7 @@ use ReflectionProperty;
  * @SuppressWarnings("PHPMD.MissingImport")
  * @SuppressWarnings("PHPMD.ExcessivePublicCount")
  * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.TooManyMethods")
  * @SuppressWarnings("PHPMD.ExcessiveClassLength")
  * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
  * @SuppressWarnings("PHPMD.UnusedFormalParameter")
@@ -216,9 +218,7 @@ final class ProcessPoolTest extends TestCase
             self::assertGreaterThan(1, count($unique));
             self::assertNotContains((string) $parentPid, $unique);
         } finally {
-            if (is_file($pidFile)) {
-                unlink($pidFile);
-            }
+            TempPath::unlinkIfTemp($pidFile);
         }
     }
 
@@ -254,59 +254,19 @@ final class ProcessPoolTest extends TestCase
 
         try {
             iterator_to_array(
-                $pool->map([1, 2, 3, 4, 5, 6], static function (int $value) use ($stateFile): int {
-                    $handle = fopen($stateFile, 'c+');
-
-                    if ($handle !== false) {
-                        flock($handle, LOCK_EX);
-                        $rawLines = file($stateFile, FILE_IGNORE_NEW_LINES);
-                        $lines = is_array($rawLines) && isset($rawLines[0], $rawLines[1])
-                            ? $rawLines
-                            : ['0', '0'];
-                        $active = (int) $lines[0] + 1;
-                        $peak = max((int) $lines[1], $active);
-                        ftruncate($handle, 0);
-                        rewind($handle);
-                        fwrite($handle, $active . "\n" . $peak . "\n");
-                        fflush($handle);
-                        flock($handle, LOCK_UN);
-                        fclose($handle);
-                    }
-
-                    usleep(80_000);
-
-                    $handle = fopen($stateFile, 'c+');
-
-                    if ($handle !== false) {
-                        flock($handle, LOCK_EX);
-                        $rawLines = file($stateFile, FILE_IGNORE_NEW_LINES);
-                        $lines = is_array($rawLines) && isset($rawLines[0], $rawLines[1])
-                            ? $rawLines
-                            : ['0', '0'];
-                        $active = max(0, (int) $lines[0] - 1);
-                        $peak = (int) $lines[1];
-                        ftruncate($handle, 0);
-                        rewind($handle);
-                        fwrite($handle, $active . "\n" . $peak . "\n");
-                        fflush($handle);
-                        flock($handle, LOCK_UN);
-                        fclose($handle);
-                    }
-
-                    return $value;
-                }),
+                $pool->map(
+                    [1, 2, 3, 4, 5, 6],
+                    static fn (int $value): int => self::workerWithSharedPeak($stateFile, $value),
+                ),
                 false,
             );
-
             $lines = file($stateFile, FILE_IGNORE_NEW_LINES);
             self::assertIsArray($lines);
             $peak = (int) ($lines[1] ?? 0);
             self::assertGreaterThanOrEqual(1, $peak);
             self::assertLessThanOrEqual(2, $peak);
         } finally {
-            if (is_file($stateFile)) {
-                unlink($stateFile);
-            }
+            TempPath::unlinkIfTemp($stateFile);
         }
     }
 
@@ -409,7 +369,8 @@ final class ProcessPoolTest extends TestCase
         );
         sort($out);
         self::assertSame([7, 8], $out);
-        pcntl_waitpid($stray, $status);
+        $waitStatus = 0;
+        pcntl_waitpid($stray, $waitStatus);
     }
 
     public function testMapForkRespectsWorkerConcurrency(): void
@@ -428,59 +389,22 @@ final class ProcessPoolTest extends TestCase
 
         try {
             $out = iterator_to_array(
-                $pool->map([1, 2, 3, 4], static function (int $value) use ($peakFile, $activeFile): int {
-                    $active = fopen($activeFile, 'c+');
-                    self::assertNotFalse($active);
-                    flock($active, LOCK_EX);
-                    $current = (int) trim((string) stream_get_contents($active));
-                    $next = $current + 1;
-                    ftruncate($active, 0);
-                    rewind($active);
-                    fwrite($active, (string) $next);
-                    fflush($active);
-                    $peak = fopen($peakFile, 'c+');
-                    self::assertNotFalse($peak);
-                    flock($peak, LOCK_EX);
-                    $peakValue = (int) trim((string) stream_get_contents($peak));
-
-                    if ($next > $peakValue) {
-                        ftruncate($peak, 0);
-                        rewind($peak);
-                        fwrite($peak, (string) $next);
-                        fflush($peak);
-                    }
-
-                    flock($peak, LOCK_UN);
-                    fclose($peak);
-                    flock($active, LOCK_UN);
-                    fclose($active);
-                    usleep(60_000);
-                    $active = fopen($activeFile, 'c+');
-                    self::assertNotFalse($active);
-                    flock($active, LOCK_EX);
-                    $current = (int) trim((string) stream_get_contents($active));
-                    ftruncate($active, 0);
-                    rewind($active);
-                    fwrite($active, (string) max(0, $current - 1));
-                    fflush($active);
-                    flock($active, LOCK_UN);
-                    fclose($active);
-
-                    return $value;
-                }),
+                $pool->map(
+                    [1, 2, 3, 4],
+                    static fn (int $value): int => self::workerWithSeparatePeakFiles(
+                        $peakFile,
+                        $activeFile,
+                        $value,
+                    ),
+                ),
                 false,
             );
             sort($out);
             self::assertSame([1, 2, 3, 4], $out);
             self::assertSame(1, (int) trim((string) file_get_contents($peakFile)));
         } finally {
-            if (is_file($peakFile)) {
-                unlink($peakFile);
-            }
-
-            if (is_file($activeFile)) {
-                unlink($activeFile);
-            }
+            TempPath::unlinkIfTemp($peakFile);
+            TempPath::unlinkIfTemp($activeFile);
         }
     }
 
@@ -498,5 +422,98 @@ final class ProcessPoolTest extends TestCase
             false,
         );
         self::assertSame([$parentPid, $parentPid, $parentPid], $pids);
+    }
+
+    /**
+     * Worker: active/peak в одном файле (две строки).
+     */
+    private static function workerWithSharedPeak(string $stateFile, int $value): int
+    {
+        self::mutateSharedPeak($stateFile, 1);
+        usleep(80_000);
+        self::mutateSharedPeak($stateFile, -1);
+
+        return $value;
+    }
+
+    /**
+     * Изменяет счётчик active и обновляет peak в общем state-файле.
+     */
+    private static function mutateSharedPeak(string $stateFile, int $delta): void
+    {
+        $handle = fopen($stateFile, 'c+');
+
+        if ($handle === false) {
+            return;
+        }
+
+        flock($handle, LOCK_EX);
+        $rawLines = file($stateFile, FILE_IGNORE_NEW_LINES);
+        $lines = is_array($rawLines) && isset($rawLines[0], $rawLines[1]) ? $rawLines : ['0', '0'];
+        $active = max(0, (int) $lines[0] + $delta);
+        $peak = max((int) $lines[1], $active);
+        ftruncate($handle, 0);
+        rewind($handle);
+        fwrite($handle, $active . "\n" . $peak . "\n");
+        fflush($handle);
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+
+    /**
+     * Worker: active и peak в разных файлах (лимит workers=1).
+     */
+    private static function workerWithSeparatePeakFiles(
+        string $peakFile,
+        string $activeFile,
+        int $value,
+    ): int {
+        $next = self::bumpCounterFile($activeFile, 1);
+        self::raisePeakFile($peakFile, $next);
+        usleep(60_000);
+        self::bumpCounterFile($activeFile, -1);
+
+        return $value;
+    }
+
+    /**
+     * Атомарно меняет целочисленный счётчик в файле на $delta.
+     */
+    private static function bumpCounterFile(string $path, int $delta): int
+    {
+        $handle = fopen($path, 'c+');
+        self::assertNotFalse($handle);
+        flock($handle, LOCK_EX);
+        $current = (int) trim((string) stream_get_contents($handle));
+        $next = max(0, $current + $delta);
+        ftruncate($handle, 0);
+        rewind($handle);
+        fwrite($handle, (string) $next);
+        fflush($handle);
+        flock($handle, LOCK_UN);
+        fclose($handle);
+
+        return $next;
+    }
+
+    /**
+     * Поднимает peak, если $candidate больше текущего значения.
+     */
+    private static function raisePeakFile(string $path, int $candidate): void
+    {
+        $handle = fopen($path, 'c+');
+        self::assertNotFalse($handle);
+        flock($handle, LOCK_EX);
+        $peakValue = (int) trim((string) stream_get_contents($handle));
+
+        if ($candidate > $peakValue) {
+            ftruncate($handle, 0);
+            rewind($handle);
+            fwrite($handle, (string) $candidate);
+            fflush($handle);
+        }
+
+        flock($handle, LOCK_UN);
+        fclose($handle);
     }
 }

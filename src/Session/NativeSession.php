@@ -28,6 +28,7 @@ use GMP;
  * @SuppressWarnings("PHPMD.BooleanArgumentFlag")
  * @SuppressWarnings("PHPMD.EmptyCatchBlock")
  * @SuppressWarnings("PHPMD.TooManyMethods")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
  */
 final class NativeSession implements SessionInterface // NOSONAR php:S1448 — единый SSH-2 session API
 {
@@ -180,12 +181,12 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
     /**
      * Identification string сервера без CR/LF.
      */
-    private string $serverId = '';
+    private string $serverId;
 
     /**
      * Exchange hash H — session id для USERAUTH.
      */
-    private string $sessionId = '';
+    private string $sessionId;
 
     /**
      * Флаг: true после успешной аутентификации до disconnect().
@@ -228,15 +229,17 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
     private string $remoteEndpoint = '';
 
     /**
-     * Выполняет identification, KEX и userauth над уже открытым TCP stream.
+     * Выполняет identification и KEX над уже открытым TCP stream (без userauth).
      *
-     * @param mixed           $stream PHP stream resource после TCP connect
-     * @param AuthCredentials $auth   Password или publickey
+     * Host-key fingerprint доступен сразу после конструктора; userauth — через login().
+     *
+     * @param mixed                 $stream PHP stream resource после TCP connect
+     * @param AuthCredentials|null  $auth   Если задан — сразу login() (удобно для тестов)
      *
      * @throws ConnectionException     При неверном stream, отсутствии gmp или ошибке протокола
-     * @throws AuthenticationException При отклонении userauth
+     * @throws AuthenticationException При отклонении userauth (только если $auth задан)
      */
-    public function __construct(mixed $stream, AuthCredentials $auth)
+    public function __construct(mixed $stream, ?AuthCredentials $auth = null)
     {
         if (!is_resource($stream)) {
             throw new ConnectionException('Ожидался stream resource для SSH');
@@ -250,6 +253,26 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
         $this->exchangeIdentification($stream);
         $this->performKeyExchange();
         $this->requestService('ssh-userauth');
+
+        if ($auth instanceof AuthCredentials) {
+            $this->login($auth);
+        }
+    }
+
+    /**
+     * Выполняет USERAUTH; вызывать после проверки host-key fingerprint.
+     *
+     * @param AuthCredentials $auth Password или publickey
+     *
+     * @throws AuthenticationException При отклонении userauth
+     * @throws ConnectionException     Если сессия уже аутентифицирована
+     */
+    public function login(AuthCredentials $auth): void
+    {
+        if ($this->connected) {
+            throw new ConnectionException('SSH-сессия уже аутентифицирована');
+        }
+
         $this->authenticate($auth);
         $this->connected = true;
     }

@@ -10,6 +10,7 @@ use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Tests\Support\PemExport;
 use CloudCastle\Ssh\Wire\SshBinary;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -22,6 +23,7 @@ use ReflectionMethod;
  */
 #[CoversClass(PublicKeySigner::class)]
 #[CoversClass(AuthCredentials::class)]
+#[UsesClass(SshBinary::class)]
 final class PublicKeySignerLoadTest extends TestCase
 {
     /**

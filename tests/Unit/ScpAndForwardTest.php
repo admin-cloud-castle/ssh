@@ -129,6 +129,27 @@ final class ScpAndForwardTest extends TestCase
         self::assertSame('ok', $fwd->request('h', 65535, ''));
     }
 
+    public function testForwardRejectsEmptyHost(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))->request('', 80, '');
+    }
+
+    public function testForwardRejectsShellMetacharactersInHost(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))
+            ->request('evil;rm', 80, '');
+    }
+
+    public function testForwardAcceptsBracketedIpv6(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+        $session->method('exec')->willReturn(base64_encode('ok'));
+        $fwd = new LocalPortForward($session);
+        self::assertSame('ok', $fwd->request('[::1]', 80, 'x'));
+    }
+
     /**
      * Дублирует сборку remote-команды LocalPortForward::request для точных assert.
      */
@@ -138,18 +159,18 @@ final class ScpAndForwardTest extends TestCase
         string $payload,
         float $timeout,
     ): string {
-        $host = escapeshellarg($remoteHost);
         $port = sprintf('%d', $remotePort);
         $b64 = base64_encode($payload);
         $timeoutSeconds = max(1, (int) $timeout);
+        $inner = 'echo ' . escapeshellarg($b64)
+            . ' | base64 -d | nc -w ' . $timeoutSeconds
+            . ' ' . escapeshellarg($remoteHost) . ' ' . $port
+            . ' | base64 -w0';
 
         return sprintf(
             'timeout %s bash -c %s',
             escapeshellarg((string) $timeoutSeconds),
-            escapeshellarg(
-                'echo ' . escapeshellarg($b64) . ' | base64 -d | nc -w ' . $timeoutSeconds
-                . ' ' . trim($host, "'") . ' ' . $port . ' | base64 -w0',
-            ),
+            escapeshellarg($inner),
         );
     }
 }

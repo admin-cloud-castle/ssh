@@ -11,6 +11,7 @@ use CloudCastle\Ssh\Exception\ConnectionException;
  * Упрощённый local port-forward: TCP-запрос с стороны SSH-сервера через remote nc/bash.
  *
  * Используется, когда native channel direct-tcpip ещё не реализован на сессии.
+ * Host допускается только в безопасном алфавите (без shell-метасимволов).
  */
 final class LocalPortForward
 {
@@ -30,14 +31,14 @@ final class LocalPortForward
      *
      * Ответ ожидается в base64; если декодирование не удалось — возвращается сырой stdout.
      *
-     * @param string $remoteHost Хост, видимый с SSH-сервера (не обязательно публичный)
+     * @param string $remoteHost Хост, видимый с SSH-сервера (hostname/IPv4/IPv6 без shell-метасимволов)
      * @param int    $remotePort TCP-порт 1…65535
      * @param string $payload    Байты запроса к удалённому сервису
      * @param float  $timeout    Таймаут remote-команды в секундах (минимум 1 после округления)
      *
      * @return string Декодированный ответ или сырой stdout exec
      *
-     * @throws ConnectionException При некорректном порте или ошибке exec
+     * @throws ConnectionException При некорректном хосте/порте или ошибке exec
      */
     public function request(string $remoteHost, int $remotePort, string $payload, float $timeout = 5.0): string
     {
@@ -45,17 +46,21 @@ final class LocalPortForward
             throw new ConnectionException('Некорректный remote port для forward');
         }
 
-        $host = escapeshellarg($remoteHost);
+        if (!$this->isSafeForwardHost($remoteHost)) {
+            throw new ConnectionException('Некорректный remote host для forward');
+        }
+
         $port = sprintf('%d', $remotePort);
         $b64 = base64_encode($payload);
         $timeoutSeconds = max(1, (int) $timeout);
+        $inner = 'echo ' . escapeshellarg($b64)
+            . ' | base64 -d | nc -w ' . $timeoutSeconds
+            . ' ' . escapeshellarg($remoteHost) . ' ' . $port
+            . ' | base64 -w0';
         $cmd = sprintf(
             'timeout %s bash -c %s',
             escapeshellarg((string) $timeoutSeconds),
-            escapeshellarg(
-                'echo ' . escapeshellarg($b64) . ' | base64 -d | nc -w ' . $timeoutSeconds
-                . ' ' . trim($host, "'") . ' ' . $port . ' | base64 -w0',
-            ),
+            escapeshellarg($inner),
         );
         $encoded = trim($this->session->exec($cmd));
         $decoded = base64_decode($encoded, true);
@@ -65,5 +70,27 @@ final class LocalPortForward
         }
 
         return $decoded;
+    }
+
+    /**
+     * Hostname / IPv4 / IPv6 без shell-метасимволов.
+     */
+    private function isSafeForwardHost(string $host): bool
+    {
+        if ($host === '') {
+            return false;
+        }
+
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            $inner = substr($host, 1, -1);
+
+            return $inner !== '' && filter_var($inner, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return true;
+        }
+
+        return (bool) preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/', $host);
     }
 }

@@ -58,6 +58,23 @@ final class NativeSessionTest extends TestCase
         }
     }
 
+    public function testHostKeyAvailableBeforeLogin(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream);
+            self::assertFalse($session->isConnected());
+            self::assertNotSame('', $session->hostKeyFingerprint());
+            $session->login(AuthCredentials::withPassword('user', 'secret'));
+            self::assertTrue($session->isConnected());
+            $this->expectException(ConnectionException::class);
+            $session->login(AuthCredentials::withPassword('user', 'secret'));
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
     public function testOpenSubsystem(): void
     {
         [$stream, $process] = MockSshPeer::start();

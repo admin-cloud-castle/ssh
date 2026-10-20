@@ -14,6 +14,7 @@ use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Pool\SessionPool;
 use CloudCastle\Ssh\Process\ProcessPool;
 use CloudCastle\Ssh\Security\EndpointGuard;
+use CloudCastle\Ssh\Security\HostKeyVerifier;
 use CloudCastle\Ssh\Security\PhpDnsResolver;
 use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Session\NativeSession;
@@ -55,6 +56,7 @@ use ReflectionMethod;
 #[CoversClass(SessionPool::class)]
 #[CoversClass(ProcessPool::class)]
 #[UsesClass(MockSshPeer::class)]
+#[UsesClass(HostKeyVerifier::class)]
 final class CoverageGapsSessionTest extends TestCase
 {
     public function testSessionFactoryUrlEndpoint(): void

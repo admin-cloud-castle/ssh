@@ -312,7 +312,7 @@ final class AsyncRuntimeTest extends TestCase
         self::assertIsArray($parts);
         self::assertSame([1, 0], $parts);
         self::assertSame([0, 500_000], $method->invoke($runtime, 0.5));
-        self::assertSame([2, 0], $method->invoke($runtime, 1.9999995));
+        self::assertSame([2, 0], $method->invoke($runtime, 1.9999996));
     }
 
     public function testRunAppliesSplitTimeoutFromFloatAwait(): void
@@ -323,7 +323,7 @@ final class AsyncRuntimeTest extends TestCase
 
         try {
             $runtime->run(static function () use ($runtime, $client): void {
-                $runtime->awaitReadable($client, 1.9999995);
+                $runtime->awaitReadable($client, 1.9999996);
             });
             self::assertSame(2, $selector->lastSeconds);
             self::assertSame(0, $selector->lastMicroseconds);

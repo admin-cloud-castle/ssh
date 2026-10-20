@@ -8,7 +8,11 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Exception\ConnectionException;
 
 /**
- * Клиент SCP поверх SSH exec (без отдельного SCP/SFTP subsystem).
+ * Remote-command fallback для копирования файлов через SSH exec.
+ *
+ * Это НЕ полноценный SCP-протокол (нет framing/ACK): get/put выполняют
+ * удалённые shell-команды (`scp -f` / printf|base64). Для protocol-compatible
+ * SCP/SFTP используйте отдельный пакет.
  */
 final class ScpClient
 {
@@ -24,7 +28,7 @@ final class ScpClient
     }
 
     /**
-     * Скачивает удалённый файл через `scp -f` и возвращает тело ответа.
+     * Скачивает удалённый файл remote-командой `scp -f` (fallback, не SCP framing).
      *
      * @param string $remotePath Абсолютный или относительный путь на сервере
      *
@@ -33,6 +37,31 @@ final class ScpClient
      * @throws ConnectionException Если ответ пустой
      */
     public function get(string $remotePath): string
+    {
+        return $this->getViaRemoteCommand($remotePath);
+    }
+
+    /**
+     * Загружает содержимое remote-командой printf|base64 (fallback, не SCP framing).
+     *
+     * @param string $remotePath Путь назначения на сервере
+     * @param string $contents   Байты файла (бинарные допустимы)
+     *
+     * @throws ConnectionException При ошибке exec на сессии
+     */
+    public function put(string $remotePath, string $contents): void
+    {
+        $this->putViaRemoteCommand($remotePath, $contents);
+    }
+
+    /**
+     * Remote-command fallback: `scp -f` без protocol ACK.
+     *
+     * @param string $remotePath Путь на сервере
+     *
+     * @return string Непустой stdout
+     */
+    public function getViaRemoteCommand(string $remotePath): string
     {
         $escaped = $this->escape($remotePath);
         $output = $this->session->exec('scp -f ' . $escaped);
@@ -45,14 +74,12 @@ final class ScpClient
     }
 
     /**
-     * Загружает содержимое в remote-файл через base64 + shell redirect.
+     * Remote-command fallback: запись через printf|base64.
      *
-     * @param string $remotePath Путь назначения на сервере
-     * @param string $contents   Байты файла (бинарные допустимы)
-     *
-     * @throws ConnectionException При ошибке exec на сессии
+     * @param string $remotePath Путь назначения
+     * @param string $contents   Байты файла
      */
-    public function put(string $remotePath, string $contents): void
+    public function putViaRemoteCommand(string $remotePath, string $contents): void
     {
         $escaped = $this->escape($remotePath);
         $b64 = base64_encode($contents);
