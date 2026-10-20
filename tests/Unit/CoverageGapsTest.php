@@ -13,7 +13,6 @@ use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Contract\DnsResolverInterface;
 use CloudCastle\Ssh\Contract\SessionFactoryInterface;
 use CloudCastle\Ssh\Contract\SessionInterface;
-use CloudCastle\Ssh\Exception\AuthenticationException;
 use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Exception\SecurityException;
 use CloudCastle\Ssh\Exception\TimeoutException;

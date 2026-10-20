@@ -166,11 +166,11 @@ final class ComparisonMarkdown
             'FEATURES' => "## Функции\n\n<!-- FEATURES:START -->\n<!-- FEATURES:END -->",
             'PERF' => "## Производительность\n\n<!-- PERF:START -->\n<!-- PERF:END -->",
             'MEMORY' => "## Память\n\n"
-                . "Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — "
+                . 'Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — '
                 . "аллокации пакета под нагрузкой, не весь процесс.\n\n"
                 . "<!-- MEMORY:START -->\n<!-- MEMORY:END -->",
             'MEMORY_LEAKS' => "## Утечки памяти\n\n"
-                . "После нагрузки и `unset`+`gc_collect_cycles`: остаточный прирост emalloc "
+                . 'После нагрузки и `unset`+`gc_collect_cycles`: остаточный прирост emalloc '
                 . "(вычтена стоимость пустого цикла).\n\n"
                 . "<!-- MEMORY_LEAKS:START -->\n<!-- MEMORY_LEAKS:END -->",
             'QUALITY' => "## Качество кода\n\n<!-- QUALITY:START -->\n<!-- QUALITY:END -->",

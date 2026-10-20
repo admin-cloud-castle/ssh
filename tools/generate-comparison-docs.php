@@ -223,7 +223,7 @@ foreach (ComparisonLoader::perf() as $perfRow) {
     $perfBody[] = $cells;
 }
 
-$perfIntro = "Методика: `hrtime(true)` без Xdebug, прогрев + усреднение; `—` — нет сопоставимого API "
+$perfIntro = 'Методика: `hrtime(true)` без Xdebug, прогрев + усреднение; `—` — нет сопоставимого API '
     . "или пакет/расширение недоступны в окружении бенчмарка.\n\n";
 
 $perfTable = $perfIntro . ComparisonMarkdown::table(
@@ -231,7 +231,7 @@ $perfTable = $perfIntro . ComparisonMarkdown::table(
     $perfBody,
 );
 
-$memoryIntro = "Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — "
+$memoryIntro = 'Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — '
     . "аллокации **пакета** под нагрузкой, не RSS/арена всего процесса.\n\n";
 
 $memoryTable = $memoryIntro . ComparisonMarkdown::table(
@@ -295,7 +295,7 @@ $leakVerdict = static function (?int $bytes): string {
     return 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
 };
 
-$leaksIntro = "После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: остаточный прирост emalloc "
+$leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: остаточный прирост emalloc '
     . "пакета должен быть **0 B** (любой прирост = leak).\n\n";
 
 $memoryLeaksTable = $leaksIntro . ComparisonMarkdown::table(
