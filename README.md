@@ -4,9 +4,11 @@
   <img src="assets/banner.svg" alt="Ssh" width="720">
 </p>
 
-# Ssh
+# cloud-castle/ssh
 
-Production-ready PHP 8.1+ библиотека Ssh (CloudCastle).
+Нативный SSH-2 клиент на PHP 8.1+: password/publickey, exec, SCP, port-forward,
+`openSubsystem()` для внешних пакетов (например SFTP), Fibers-async, пул сессий,
+мультипроцесс, host-key verify и SSRF-guard — без Composer runtime-зависимостей.
 
 <!-- Группа 1: Packagist (только живые shields endpoints) -->
 [![Packagist Version](https://img.shields.io/packagist/v/cloud-castle/ssh?label=packagist)](https://packagist.org/packages/cloud-castle/ssh)
@@ -50,23 +52,26 @@ Production-ready PHP 8.1+ библиотека Ssh (CloudCastle).
 
 ## Зачем
 
-Production-ready PHP 8.1+ библиотека Ssh (CloudCastle).
-
-Краткая выжимка:
+Чистый PHP SSH-2 транспорт с тем же security-контуром, что и остальная инфраструктура
+CloudCastle (SSRF-guard, DNS-pinning, строгий host key), плюс async/pool/multiprocess
+из коробки.
 
 **Плюсы**
-- PHP 8.1+, строгие типы, полный quality-стек в CI
-- Цель эталона: покрытие ≥99.8%, Infection MSI 100% (по Coveralls / Quality CI)
-- Минимум runtime-зависимостей
+- Pure-PHP SSH-2 (openssl/gmp), password и publickey (RSA / Ed25519)
+- Sync + Fibers async, SessionPool, ProcessPool (pcntl)
+- SCP и local port-forward; `openSubsystem()` для отдельного SFTP-пакета
+- PHPStan max / Psalm 1 / PHPMD / Deptrac; покрытие строк ≥99.8%
+- Ноль Composer runtime-зависимостей
 
 **Минусы** (допустимые по эталону CloudCastle)
-- Пакет моложе и менее распространён, чем зрелые аналоги
-- Меньше установок/звёзд на старте
+- Пакет моложе и менее распространён, чем phpseclib / spatie/ssh
+- Меньше установок и звёзд на старте
 
 ## Когда применять
 
-- Новый код на PHP 8.1+, где нужны предсказуемые контракты и зелёный CI
-- Проекты экосистемы CloudCastle / `cloud-castle/*`
+- Автоматизация по SSH: деплой, remote exec, SCP, туннели
+- Сервисы, где нужен SSRF-safe outbound SSH из PHP без libssh2
+- Экосистема CloudCastle / `cloud-castle/*`, когда SFTP подключается отдельным пакетом
 
 ## Установка
 
@@ -81,10 +86,18 @@ composer require cloud-castle/ssh
 
 declare(strict_types=1);
 
+use CloudCastle\Ssh\Contract\AuthCredentials;
+use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Ssh;
 
-$pkg = new Ssh();
-echo $pkg->name();
+$ssh = new Ssh();
+$session = $ssh->connect(
+    'example.com:22',
+    AuthCredentials::withPassword('deploy', getenv('SSH_PASSWORD') ?: ''),
+    ConnectionOptions::defaults(),
+);
+echo $session->exec('uname -a');
+$session->disconnect();
 ```
 
 ## Документация
