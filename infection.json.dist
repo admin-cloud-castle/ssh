@@ -113,11 +113,9 @@
         },
         "Minus": {
             "ignoreSourceCodeByRegex": [
-                "\\$need - strlen\\(\\$body\\)"
+                "\\$need - strlen\\(\\$body\\)",
+                "max\\(1, \\$need - strlen\\(\\$body\\)\\)"
             ]
         }
-    },
-    "phpUnit": {
-        "customPath": "tools/phpunit-php81.sh"
     }
 }

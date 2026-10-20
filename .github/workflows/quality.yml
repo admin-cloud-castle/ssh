@@ -115,6 +115,8 @@ jobs:
           "${ocular_bin}" "${args[@]}"
 
       - name: Tests mutation
+        env:
+          XDEBUG_MODE: coverage
         run: composer test:mutation
 
       - name: Meta
