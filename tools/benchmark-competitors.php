@@ -17,6 +17,8 @@ if (extension_loaded('xdebug') && (string) ini_get('xdebug.mode') !== 'off' && (
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+const BENCH_LOOPBACK_HOST = '127.0.0.1';
+
 use CloudCastle\Ssh\Client\SessionFactory;
 use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Contract\ConnectionOptions;
@@ -92,7 +94,7 @@ $benches['phpseclib_client_construct'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1');
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST);
         unset($client);
     }, $iterations, $warm);
 };
@@ -109,7 +111,7 @@ $benches['spatie_client_construct'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('user', '127.0.0.1');
+        $client = \Spatie\Ssh\Ssh::create('user', BENCH_LOOPBACK_HOST);
         unset($client);
     }, $iterations, $warm);
 };
@@ -128,7 +130,7 @@ $benches['flysystem_client_construct'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'user',
             'password' => 'secret',
             'port' => 22,
@@ -156,7 +158,7 @@ $benches['phpseclib_password_auth_setup'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1');
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST);
         $user = 'deploy';
         $pass = 'secret';
         unset($client, $user, $pass);
@@ -175,7 +177,7 @@ $benches['spatie_password_auth_setup'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('deploy', '127.0.0.1')->usePassword('secret');
+        $client = \Spatie\Ssh\Ssh::create('deploy', BENCH_LOOPBACK_HOST)->usePassword('secret');
         unset($client);
     }, $iterations, $warm);
 };
@@ -194,7 +196,7 @@ $benches['flysystem_password_auth_setup'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'deploy',
             'password' => 'secret',
             'port' => 22,
@@ -221,7 +223,7 @@ $benches['phpseclib_timeout_configure'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1');
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST);
         $client->setTimeout(10);
         unset($client);
     }, $iterations, $warm);
@@ -239,7 +241,7 @@ $benches['spatie_timeout_configure'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('user', '127.0.0.1')->setTimeout(10);
+        $client = \Spatie\Ssh\Ssh::create('user', BENCH_LOOPBACK_HOST)->setTimeout(10);
         unset($client);
     }, $iterations, $warm);
 };
@@ -257,7 +259,7 @@ $benches['flysystem_timeout_configure'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'user',
             'password' => 'secret',
             'port' => 22,
@@ -272,7 +274,7 @@ $benches['ours_port_configure'] = static function () use ($measure, $iterations,
     $options = ConnectionOptions::defaults()->allowPrivateAddresses();
 
     return $measure(static function () use ($guard, $options): void {
-        $pinned = $guard->prepare('127.0.0.1:2222', $options);
+        $pinned = $guard->prepare(BENCH_LOOPBACK_HOST . ':2222', $options);
         unset($pinned);
     }, $iterations, $warm);
 };
@@ -289,7 +291,7 @@ $benches['phpseclib_port_configure'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1', 2222);
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST, 2222);
         unset($client);
     }, $iterations, $warm);
 };
@@ -306,7 +308,7 @@ $benches['spatie_port_configure'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('user', '127.0.0.1')->usePort(2222);
+        $client = \Spatie\Ssh\Ssh::create('user', BENCH_LOOPBACK_HOST)->usePort(2222);
         unset($client);
     }, $iterations, $warm);
 };
@@ -324,7 +326,7 @@ $benches['flysystem_port_configure'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'user',
             'password' => 'secret',
             'port' => 2222,
@@ -350,7 +352,7 @@ $benches['spatie_hostkey_policy'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('user', '127.0.0.1')->disableStrictHostKeyChecking();
+        $client = \Spatie\Ssh\Ssh::create('user', BENCH_LOOPBACK_HOST)->disableStrictHostKeyChecking();
         unset($client);
     }, $iterations, $warm);
 };
@@ -360,7 +362,7 @@ $benches['ours_endpoint_prepare'] = static function () use ($measure, $iteration
     $options = ConnectionOptions::defaults()->allowPrivateAddresses();
 
     return $measure(static function () use ($guard, $options): void {
-        $pinned = $guard->prepare('127.0.0.1:22', $options);
+        $pinned = $guard->prepare(BENCH_LOOPBACK_HOST . ':22', $options);
         unset($pinned);
     }, $iterations, $warm);
 };
@@ -377,7 +379,7 @@ $benches['phpseclib_endpoint_prepare'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1', 22);
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST, 22);
         unset($client);
     }, $iterations, $warm);
 };
@@ -394,7 +396,7 @@ $benches['spatie_endpoint_prepare'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('user', '127.0.0.1')->usePort(22);
+        $client = \Spatie\Ssh\Ssh::create('user', BENCH_LOOPBACK_HOST)->usePort(22);
         unset($client);
     }, $iterations, $warm);
 };
@@ -412,7 +414,7 @@ $benches['flysystem_endpoint_prepare'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'user',
             'password' => 'secret',
             'port' => 22,
@@ -428,7 +430,7 @@ $benches['ours_full_client_stack'] = static function () use ($measure, $iteratio
         $ssh = new Ssh();
         $auth = AuthCredentials::withPassword('deploy', 'secret');
         $options = (new ConnectionOptions(10.0, 30.0, false))->allowPrivateAddresses();
-        $pinned = $guard->prepare('127.0.0.1:22', $options);
+        $pinned = $guard->prepare(BENCH_LOOPBACK_HOST . ':22', $options);
         unset($ssh, $auth, $options, $pinned);
     }, $iterations, $warm);
 };
@@ -445,7 +447,7 @@ $benches['phpseclib_full_client_stack'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = new \phpseclib3\Net\SSH2('127.0.0.1', 22);
+        $client = new \phpseclib3\Net\SSH2(BENCH_LOOPBACK_HOST, 22);
         $client->setTimeout(10);
         $user = 'deploy';
         $pass = 'secret';
@@ -465,7 +467,7 @@ $benches['spatie_full_client_stack'] = static function () use (
     }
 
     return $measure(static function (): void {
-        $client = \Spatie\Ssh\Ssh::create('deploy', '127.0.0.1')
+        $client = \Spatie\Ssh\Ssh::create('deploy', BENCH_LOOPBACK_HOST)
             ->usePassword('secret')
             ->usePort(22)
             ->setTimeout(10)
@@ -487,7 +489,7 @@ $benches['flysystem_full_client_stack'] = static function () use (
 
     return $measure(static function (): void {
         $provider = SftpConnectionProvider::fromArray([
-            'host' => '127.0.0.1',
+            'host' => BENCH_LOOPBACK_HOST,
             'username' => 'deploy',
             'password' => 'secret',
             'port' => 22,
@@ -507,7 +509,7 @@ $benches['ours_session_connect_exec'] = static function () use ($measure, $sessi
         [$port, $process] = MockSshPeer::listen();
 
         try {
-            $session = $factory->connect('127.0.0.1:' . $port, $auth, $options);
+            $session = $factory->connect(BENCH_LOOPBACK_HOST . ':' . $port, $auth, $options);
             $session->exec('id');
             $session->disconnect();
         } finally {
@@ -523,7 +525,7 @@ $benches['ours_session_pool_cycle'] = static function () use ($measure, $session
 
     return $measure(static function () use ($pool, $auth, $options): void {
         [$port, $process] = MockSshPeer::listen();
-        $endpoint = '127.0.0.1:' . $port;
+        $endpoint = BENCH_LOOPBACK_HOST . ':' . $port;
 
         try {
             $session = $pool->acquire($endpoint, $auth, $options);

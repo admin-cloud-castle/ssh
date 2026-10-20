@@ -145,7 +145,6 @@ final class CoverageGapsWireTest extends TestCase
         [$client, $server] = $this->pair();
         $wire = new SshWire($client);
         $payload = chr(52);
-        $block = 8;
         $paddingLength = 4;
         $packetLength = strlen($payload) + $paddingLength + 1;
         $packet = SshBinary::uint32($packetLength)

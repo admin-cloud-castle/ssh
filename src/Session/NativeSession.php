@@ -29,7 +29,7 @@ use GMP;
  * @SuppressWarnings("PHPMD.EmptyCatchBlock")
  * @SuppressWarnings("PHPMD.TooManyMethods")
  */
-final class NativeSession implements SessionInterface
+final class NativeSession implements SessionInterface // NOSONAR php:S1448 — единый SSH-2 session API
 {
     /**
      * SSH_MSG_DISCONNECT.

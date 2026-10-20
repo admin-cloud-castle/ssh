@@ -6,7 +6,6 @@ namespace CloudCastle\Ssh\Tests\Support;
 
 use CloudCastle\Ssh\Wire\SshBinary;
 use GMP;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -22,9 +21,12 @@ use Throwable;
  * @SuppressWarnings("PHPMD.MissingImport")
  * @SuppressWarnings("PHPMD.UnusedLocalVariable")
  * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.TooManyMethods")
+ * @SuppressWarnings("PHPMD.ElseExpression")
  */
-final class MockSshServer
+final class MockSshServer // NOSONAR php:S1448 — монолитный test double peer
 {
+
     private const GROUP14_P =
         'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74'
         . '020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F1437'
@@ -103,11 +105,8 @@ final class MockSshServer
         $off = 1;
         $name = SshBinary::readString($svc, $off);
 
-        if (getenv('CC_SSH_SERVICE_MISMATCH') === '1') {
-            $this->send(chr(6) . SshBinary::sshString('ssh-notauth'));
-        } else {
-            $this->send(chr(6) . SshBinary::sshString($name));
-        }
+        $acceptName = getenv('CC_SSH_SERVICE_MISMATCH') === '1' ? 'ssh-notauth' : $name;
+        $this->send(chr(6) . SshBinary::sshString($acceptName));
         $this->receive();
 
         if (getenv('CC_SSH_REJECT_AUTH') === '1') {
@@ -168,11 +167,11 @@ final class MockSshServer
         $key = openssl_pkey_get_private($this->hostKeyPem);
 
         if ($key === false) {
-            throw new RuntimeException('host key load failed');
+            throw new MockSshException('host key load failed');
         }
 
         if (!openssl_sign($hash, $signature, $key, OPENSSL_ALGO_SHA256) || $signature === '') {
-            throw new RuntimeException('host key sign failed');
+            throw new MockSshException('host key sign failed');
         }
 
         $sigBlob = SshBinary::sshString('rsa-sha2-256') . SshBinary::sshString($signature);
@@ -204,6 +203,7 @@ final class MockSshServer
     private function dispatchChannelPacket(string $packet): bool
     {
         $type = ord($packet[0]);
+        $keepGoing = true;
 
         if ($type === 1) {
             $record = getenv('CC_SSH_DISCONNECT_FILE');
@@ -212,26 +212,16 @@ final class MockSshServer
                 file_put_contents($record, substr($packet, 1));
             }
 
-            return false;
-        }
-
-        if ($type === 90) {
+            $keepGoing = false;
+        } elseif ($type === 90) {
             $this->confirmChannelOpen($packet);
-
-            return true;
-        }
-
-        if ($type === 94) {
+        } elseif ($type === 94) {
             $this->echoChannelData($packet);
-
-            return true;
-        }
-
-        if ($type === 98) {
+        } elseif ($type === 98) {
             $this->handleChannelRequest($packet);
         }
 
-        return true;
+        return $keepGoing;
     }
 
     private function confirmChannelOpen(string $packet): void
@@ -288,7 +278,7 @@ final class MockSshServer
             $chunk = fread($this->stream, 512);
 
             if ($chunk === false || $chunk === '') {
-                throw new \RuntimeException('id read');
+                throw new MockSshException('id read');
             }
 
             $line .= $chunk;
@@ -348,7 +338,7 @@ final class MockSshServer
         $payload = $this->encrypted ? $this->receive() : $this->receivePlain();
 
         if ($payload === '' || ord($payload[0]) !== $type) {
-            throw new \RuntimeException('expected ' . $type . ' got ' . ($payload === '' ? 'empty' : ord($payload[0])));
+            throw new MockSshException('expected ' . $type . ' got ' . ($payload === '' ? 'empty' : ord($payload[0])));
         }
 
         return $payload;
@@ -398,7 +388,7 @@ final class MockSshServer
         $enc = openssl_encrypt($packet, 'aes-128-ctr', $this->s2cKey, OPENSSL_RAW_DATA, $this->s2cIv);
 
         if ($enc === false) {
-            throw new RuntimeException('encrypt failed');
+            throw new MockSshException('encrypt failed');
         }
 
         $this->s2cIv = $this->advance($this->s2cIv, (int) (strlen($packet) / 16));
@@ -416,7 +406,7 @@ final class MockSshServer
         $plain = $this->decryptOrFail($first);
 
         if (strlen($plain) < 5) {
-            throw new RuntimeException('decrypt failed');
+            throw new MockSshException('decrypt failed');
         }
 
         $this->c2sIv = $this->advance($this->c2sIv, 1);
@@ -435,7 +425,7 @@ final class MockSshServer
         $this->readExact(32);
         ++$this->recvSeq;
         if ($this->macProbe === '') {
-            throw new RuntimeException('mac not ready');
+            throw new MockSshException('mac not ready');
         }
 
         return substr($packet, 5, $packetLength - $paddingLength - 1);
@@ -449,7 +439,7 @@ final class MockSshServer
         $plain = openssl_decrypt($cipher, 'aes-128-ctr', $this->c2sKey, OPENSSL_RAW_DATA, $this->c2sIv);
 
         if ($plain === false) {
-            throw new RuntimeException('decrypt failed');
+            throw new MockSshException('decrypt failed');
         }
 
         return $plain;
@@ -467,7 +457,7 @@ final class MockSshServer
             $chunk = fread($this->stream, $need);
 
             if ($chunk === false || $chunk === '') {
-                throw new RuntimeException('eof');
+                throw new MockSshException('eof');
             }
 
             $buf .= $chunk;
@@ -501,13 +491,13 @@ final class MockSshServer
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
         if ($key === false) {
-            throw new RuntimeException('openssl_pkey_new failed');
+            throw new MockSshException('openssl_pkey_new failed');
         }
 
         $pem = '';
 
         if (!openssl_pkey_export($key, $pem) || $pem === '') {
-            throw new RuntimeException('openssl_pkey_export failed');
+            throw new MockSshException('openssl_pkey_export failed');
         }
 
         /** @var string $pemString */
@@ -516,14 +506,14 @@ final class MockSshServer
         $details = openssl_pkey_get_details($key);
 
         if (!is_array($details) || !isset($details['rsa']) || !is_array($details['rsa'])) {
-            throw new RuntimeException('rsa details missing');
+            throw new MockSshException('rsa details missing');
         }
 
         $n = $details['rsa']['n'] ?? null;
         $e = $details['rsa']['e'] ?? null;
 
         if (!is_string($n) || !is_string($e)) {
-            throw new RuntimeException('rsa n/e missing');
+            throw new MockSshException('rsa n/e missing');
         }
         $this->hostKeyBlob = SshBinary::sshString('ssh-rsa') . SshBinary::mpint($e) . SshBinary::mpint($n);
     }

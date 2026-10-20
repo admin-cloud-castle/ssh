@@ -96,35 +96,31 @@ if (isset($avg['php_versions']) && is_array($avg['php_versions'])) {
 }
 
 $fmtNs = static function (?float $ns): string {
+    $formatted = sprintf('%.0f ns', $ns ?? 0.0);
+
     if ($ns === null || $ns <= 0.0) {
-        return '—';
+        $formatted = '—';
+    } elseif ($ns >= 1_000_000.0) {
+        $formatted = sprintf('%.2f ms', $ns / 1_000_000.0);
+    } elseif ($ns >= 1000.0) {
+        $formatted = sprintf('%.1f µs', $ns / 1000.0);
     }
 
-    if ($ns >= 1_000_000.0) {
-        return sprintf('%.2f ms', $ns / 1_000_000.0);
-    }
-
-    if ($ns >= 1000.0) {
-        return sprintf('%.1f µs', $ns / 1000.0);
-    }
-
-    return sprintf('%.0f ns', $ns);
+    return $formatted;
 };
 
 $fmtMem = static function (?int $bytes): string {
+    $formatted = ($bytes ?? 0) . ' B';
+
     if ($bytes === null) {
-        return '—';
+        $formatted = '—';
+    } elseif (abs($bytes) >= 1024 * 1024) {
+        $formatted = sprintf('%.2f MiB', $bytes / (1024 * 1024));
+    } elseif (abs($bytes) >= 1024) {
+        $formatted = sprintf('%.1f KiB', $bytes / 1024);
     }
 
-    if (abs($bytes) >= 1024 * 1024) {
-        return sprintf('%.2f MiB', $bytes / (1024 * 1024));
-    }
-
-    if (abs($bytes) >= 1024) {
-        return sprintf('%.1f KiB', $bytes / 1024);
-    }
-
-    return $bytes . ' B';
+    return $formatted;
 };
 
 /**
@@ -232,7 +228,7 @@ $perfIntro = 'Методика: `hrtime(true)` без Xdebug, прогрев + �
     . "или пакет/расширение недоступны в окружении бенчмарка.\n\n";
 
 $perfTable = $perfIntro . ComparisonMarkdown::table(
-    array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
+    array_merge(['Метрика'], $pkgHeader, [ComparisonMarkdown::WINNER_COLUMN]),
     $perfBody,
 );
 
@@ -242,7 +238,7 @@ $memoryIntro = 'Методика: `memory_get_usage(false)` (emalloc) '
     . "не RSS/арена всего процесса.\n\n";
 
 $memoryTable = $memoryIntro . ComparisonMarkdown::table(
-    array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
+    array_merge(['Метрика'], $pkgHeader, [ComparisonMarkdown::WINNER_COLUMN]),
     [
         [
             'Память пакета под нагрузкой (hold ×' . $holdN . ', emalloc − baseline)',
@@ -287,19 +283,19 @@ $leakHold = [
 ];
 
 $leakVerdict = static function (?int $bytes): string {
+    $formatted = '—';
+
     if ($bytes === null) {
-        return '—';
+        $formatted = '—';
+    } elseif ($bytes === 0) {
+        $formatted = 'OK (0 B)';
+    } elseif ($bytes <= 65536) {
+        $formatted = 'leak (' . $bytes . ' B)';
+    } else {
+        $formatted = 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
     }
 
-    if ($bytes === 0) {
-        return 'OK (0 B)';
-    }
-
-    if ($bytes <= 65536) {
-        return 'leak (' . $bytes . ' B)';
-    }
-
-    return 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
+    return $formatted;
 };
 
 $leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: '
@@ -307,7 +303,7 @@ $leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_me
     . "пакета должен быть **0 B** (любой прирост = leak).\n\n";
 
 $memoryLeaksTable = $leaksIntro . ComparisonMarkdown::table(
-    array_merge(['Сценарий'], $pkgHeader, ['🏆 Победитель']),
+    array_merge(['Сценарий'], $pkgHeader, [ComparisonMarkdown::WINNER_COLUMN]),
     [
         [
             'После hold ×' . $holdN . ' + unset+gc',
@@ -342,9 +338,6 @@ $memoryLeaksTable = $leaksIntro . ComparisonMarkdown::table(
     ],
 );
 
-/**
- * @param list<array<string, mixed>> $rows
- */
 $boolMatrixTable = static function (
     string $firstCol,
     array $rows,
@@ -355,46 +348,15 @@ $boolMatrixTable = static function (
     $productName,
     $pkgHeader
 ): string {
-    /** @var list<list<string>> $body */
-    $body = [];
-
-    foreach ($rows as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-
-        $flagsRaw = $row['packages'] ?? null;
-
-        if (!is_array($flagsRaw)) {
-            continue;
-        }
-
-        /** @var array<string, bool> $flags */
-        $flags = [];
-
-        foreach (array_keys($flagsRaw) as $flagKey) {
-            if (!is_string($flagKey)) {
-                continue;
-            }
-
-            $flags[$flagKey] = ($flagsRaw[$flagKey] ?? false) === true;
-        }
-
-        $cells = [''];
-
-        if (isset($row[$labelKey]) && is_string($row[$labelKey])) {
-            $cells = [$row[$labelKey]];
-        }
-
-        foreach ($order as $key) {
-            $cells[] = ($flags[$key] ?? false) ? '✅' : '❌';
-        }
-
-        $cells[] = ComparisonMarkdown::boolWinner($flags, $order, $labels, $productName);
-        $body[] = $cells;
-    }
-
-    return ComparisonMarkdown::table(array_merge([$firstCol], $pkgHeader, ['🏆 Победитель']), $body);
+    return ComparisonMarkdown::boolMatrixTable(
+        $order,
+        $labels,
+        $pkgHeader,
+        $rows,
+        $firstCol,
+        $labelKey,
+        $productName,
+    );
 };
 
 $qualityTable = $boolMatrixTable('Метрика качества', ComparisonLoader::quality(), 'metric');

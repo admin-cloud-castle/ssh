@@ -21,6 +21,7 @@ use ReflectionMethod;
  * @SuppressWarnings("PHPMD.MissingImport")
  * @SuppressWarnings("PHPMD.ExcessivePublicCount")
  * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.TooManyMethods")
  * @SuppressWarnings("PHPMD.ExcessiveClassLength")
  * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
  * @SuppressWarnings("PHPMD.UnusedFormalParameter")

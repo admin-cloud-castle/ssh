@@ -305,38 +305,63 @@ final class EndpointGuard
     private function replaceHost(string $endpoint, string $ip): string
     {
         $formattedIp = str_contains($ip, ':') ? '[' . $ip . ']' : $ip;
+        $result = $formattedIp;
 
         if (str_contains($endpoint, '://')) {
-            $parts = parse_url($endpoint);
+            $result = $this->replaceHostWithScheme($endpoint, $formattedIp);
+        } elseif (str_starts_with($endpoint, '[')) {
+            $result = $this->replaceBracketHost($endpoint, $formattedIp);
+        } else {
+            $colon = strrpos($endpoint, ':');
 
-            if (!is_array($parts)) { // @codeCoverageIgnore
-                return $endpoint; // @codeCoverageIgnore
+            if (is_int($colon) && ctype_digit(substr($endpoint, $colon + 1))) {
+                $result = $formattedIp . substr($endpoint, $colon);
             }
-
-            $scheme = $parts['scheme'] ?? 'tcp';
-            $port = isset($parts['port']) ? ':' . $parts['port'] : '';
-            $path = $parts['path'] ?? '';
-
-            return $scheme . '://' . $formattedIp . $port . $path;
         }
 
-        if (str_starts_with($endpoint, '[')) {
-            $end = strpos($endpoint, ']');
+        return $result;
+    }
 
-            if ($end === false) {
-                return $formattedIp;
-            }
+    /**
+     * Подмена host в URL со схемой (tcp://host:port/path).
+     *
+     * @param string $endpoint    Исходный endpoint со схемой
+     * @param string $formattedIp IP уже в форме для URI (IPv6 в скобках)
+     *
+     * @return string Endpoint с подставленным IP
+     */
+    private function replaceHostWithScheme(string $endpoint, string $formattedIp): string
+    {
+        $parts = parse_url($endpoint);
 
-            return $formattedIp . substr($endpoint, $end + 1);
+        if (!is_array($parts)) { // @codeCoverageIgnore
+            return $endpoint; // @codeCoverageIgnore
         }
 
-        $colon = strrpos($endpoint, ':');
+        $scheme = $parts['scheme'] ?? 'tcp';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path = $parts['path'] ?? '';
 
-        if (is_int($colon) && ctype_digit(substr($endpoint, $colon + 1))) {
-            return $formattedIp . substr($endpoint, $colon);
+        return $scheme . '://' . $formattedIp . $port . $path;
+    }
+
+    /**
+     * Подмена host в литерале [ipv6]:port.
+     *
+     * @param string $endpoint    Исходный endpoint вида [addr]...
+     * @param string $formattedIp IP уже в форме для URI
+     *
+     * @return string Endpoint с подставленным IP
+     */
+    private function replaceBracketHost(string $endpoint, string $formattedIp): string
+    {
+        $end = strpos($endpoint, ']');
+
+        if ($end === false) {
+            return $formattedIp;
         }
 
-        return $formattedIp;
+        return $formattedIp . substr($endpoint, $end + 1);
     }
 
     /**

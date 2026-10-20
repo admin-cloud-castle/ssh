@@ -332,7 +332,8 @@ final class CoverageGapsSessionTest extends TestCase
         try {
             $this->expectException(ConnectionException::class);
             $this->expectExceptionMessage('SSH service accept mismatch');
-            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::fail('ожидалось ConnectionException, получена сессия ' . $session::class);
         } finally {
             putenv('CC_SSH_SERVICE_MISMATCH');
             MockSshPeer::stop($process);
@@ -347,7 +348,8 @@ final class CoverageGapsSessionTest extends TestCase
         try {
             $this->expectException(ConnectionException::class);
             $this->expectExceptionMessage('Некорректный DH параметр f');
-            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::fail('ожидалось ConnectionException, получена сессия ' . $session::class);
         } finally {
             putenv('CC_SSH_BAD_DH');
             MockSshPeer::stop($process);
@@ -418,7 +420,8 @@ final class CoverageGapsSessionTest extends TestCase
         try {
             $this->expectException(AuthenticationException::class);
             $this->expectExceptionMessage('SSH-аутентификация отклонена');
-            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::fail('ожидалось AuthenticationException, получена сессия ' . $session::class);
         } finally {
             putenv('CC_SSH_REJECT_AUTH');
             MockSshPeer::stop($process);
@@ -439,7 +442,8 @@ final class CoverageGapsSessionTest extends TestCase
             $this->expectExceptionMessage(
                 'Для SSH нужны AuthCredentials::withPassword или AuthCredentials::withPublicKey',
             );
-            new NativeSession($stream, $empty);
+            $session = new NativeSession($stream, $empty);
+            self::fail('ожидалось AuthenticationException, получена сессия ' . $session::class);
         } finally {
             MockSshPeer::stop($process);
         }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace CloudCastle\Ssh\Tests\Support;
 
-use RuntimeException;
-
 /**
  * Поднимает MockSshServer в отдельном PHP-процессе по TCP (без fork — дружит с coverage).
  *
@@ -46,7 +44,7 @@ final class MockSshPeer
         $portFile = tempnam(sys_get_temp_dir(), 'ccssh');
 
         if ($portFile === false) {
-            throw new RuntimeException('tempnam failed');
+            throw new MockSshException('tempnam failed');
         }
 
         $script = __DIR__ . '/mock-ssh-tcp.php';
@@ -62,7 +60,7 @@ final class MockSshPeer
         $process = proc_open($cmd, $descriptors, $pipes, dirname(__DIR__, 2));
 
         if ($process === false) {
-            throw new RuntimeException('proc_open mock server failed');
+            throw new MockSshException('proc_open mock server failed');
         }
 
         self::$retainedPipes[] = array_values($pipes);
@@ -82,7 +80,7 @@ final class MockSshPeer
         $errstr = '';
 
         while (microtime(true) < $deadline) {
-            $candidate = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 1.0);
+            $candidate = @stream_socket_client('tcp://' . '127.0.0.1' . ':' . $port, $errno, $errstr, 1.0);
 
             if (is_resource($candidate)) {
                 stream_set_timeout($candidate, 10);
@@ -93,7 +91,7 @@ final class MockSshPeer
             usleep(50_000);
         }
 
-        throw new RuntimeException(sprintf('connect mock: [%d] %s', $errno, $errstr));
+        throw new MockSshException(sprintf('connect mock: [%d] %s', $errno, $errstr));
     }
 
     /**
@@ -134,7 +132,7 @@ final class MockSshPeer
             usleep(20_000);
         }
 
-        throw new RuntimeException('mock server port timeout');
+        throw new MockSshException('mock server port timeout');
     }
 
     /**

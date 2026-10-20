@@ -46,7 +46,7 @@
 CloudCastle (SSRF-guard, DNS-pinning, строгий host key), плюс async/pool/multiprocess
 из коробки.
 
-**Плюсы**
+### Плюсы
 
 - Pure-PHP SSH-2 (openssl/gmp), password и publickey (RSA / Ed25519)
 - Sync + Fibers async, SessionPool, ProcessPool (pcntl)
@@ -54,17 +54,18 @@ CloudCastle (SSRF-guard, DNS-pinning, строгий host key), плюс async/p
 - PHPStan max / Psalm 1 / PHPMD / Deptrac; покрытие строк ≥99.8%
 - Ноль Composer runtime-зависимостей
 
-**Минусы** (допустимые по эталону CloudCastle)
+### Минусы
+
+Допустимые по эталону CloudCastle:
 
 - Пакет моложе и менее распространён, чем phpseclib / spatie/ssh
 - Меньше установок и звёзд на старте
 
-## Когда применять
+### Когда применять
 
 - Автоматизация по SSH: деплой, remote exec, SCP, туннели
 - Сервисы, где нужен SSRF-safe outbound SSH из PHP без libssh2
 - Экосистема CloudCastle / `cloud-castle/*`, когда SFTP подключается отдельным пакетом
-
 
 ## Установка
 

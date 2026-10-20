@@ -10,6 +10,13 @@ namespace CloudCastle\Ssh\Tools;
 final class ComparisonMarkdown
 {
     /**
+     * Заголовок колонки победителей в markdown-таблицах сравнения.
+     *
+     * @var string
+     */
+    public const WINNER_COLUMN = '🏆 Победитель';
+
+    /**
      * Победители булевой строки: все пакеты с ✅ (через запятую); иначе —.
      *
      * @param array<string, bool>   $flags
@@ -152,6 +159,93 @@ final class ComparisonMarkdown
         $scale = max(abs($best), abs($value), 1.0);
 
         return abs($value - $best) / $scale <= $relTol;
+    }
+
+    /**
+     * Таблица булевой матрицы (фичи / качество / security) с колонкой победителя.
+     *
+     * @param list<string>               $order       Порядок ключей пакетов
+     * @param array<string, string>      $labels      Подписи пакетов
+     * @param list<string>               $pkgHeader   Заголовки колонок пакетов
+     * @param list<array<string, mixed>> $rows        Строки каталога
+     * @param string                     $firstCol    Заголовок первой колонки
+     * @param string                     $labelKey    Ключ подписи строки (feature/metric/…)
+     * @param string                     $productName Имя нашего продукта для «ours»
+     */
+    public static function boolMatrixTable(
+        array $order,
+        array $labels,
+        array $pkgHeader,
+        array $rows,
+        string $firstCol,
+        string $labelKey,
+        string $productName,
+    ): string {
+        /** @var list<list<string>> $body */
+        $body = [];
+
+        foreach ($rows as $row) {
+            $cells = self::boolMatrixRow($order, $labels, $row, $labelKey, $productName);
+
+            if ($cells !== null) {
+                $body[] = $cells;
+            }
+        }
+
+        return self::table(array_merge([$firstCol], $pkgHeader, [self::WINNER_COLUMN]), $body);
+    }
+
+    /**
+     * Одна строка булевой матрицы или null, если строка каталога некорректна.
+     *
+     * @param list<string>          $order
+     * @param array<string, string> $labels
+     * @param array<string, mixed>  $row
+     *
+     * @return list<string>|null
+     */
+    private static function boolMatrixRow(
+        array $order,
+        array $labels,
+        array $row,
+        string $labelKey,
+        string $productName,
+    ): ?array {
+        $flagsRaw = $row['packages'] ?? null;
+
+        if (!is_array($flagsRaw)) {
+            return null;
+        }
+
+        $flags = self::boolFlags($flagsRaw);
+        $cells = [isset($row[$labelKey]) && is_string($row[$labelKey]) ? $row[$labelKey] : ''];
+
+        foreach ($order as $key) {
+            $cells[] = ($flags[$key] ?? false) ? '✅' : '❌';
+        }
+
+        $cells[] = self::boolWinner($flags, $order, $labels, $productName);
+
+        return $cells;
+    }
+
+    /**
+     * @param array<array-key, mixed> $flagsRaw
+     *
+     * @return array<string, bool>
+     */
+    private static function boolFlags(array $flagsRaw): array
+    {
+        /** @var array<string, bool> $flags */
+        $flags = [];
+
+        foreach (array_keys($flagsRaw) as $flagKey) {
+            if (is_string($flagKey)) {
+                $flags[$flagKey] = ($flagsRaw[$flagKey] ?? false) === true;
+            }
+        }
+
+        return $flags;
     }
 
     /**

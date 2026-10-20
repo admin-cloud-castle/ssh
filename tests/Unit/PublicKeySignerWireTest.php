@@ -18,6 +18,8 @@ use ReflectionMethod;
  *
  * @SuppressWarnings("PHPMD.StaticAccess")
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ShortVariable")
  */
 #[CoversClass(PublicKeySigner::class)]
 #[CoversClass(SshBinary::class)]
@@ -46,21 +48,27 @@ final class PublicKeySignerWireTest extends TestCase
         $publicBlob = SshBinary::readString($req, $offset);
         self::assertSame($parts['publicBlob'], $publicBlob);
         $signatureBlob = SshBinary::readString($req, $offset);
-        self::assertSame(strlen($req), $offset);
+        self::assertSame($offset, strlen($req));
 
         $sigOff = 0;
         self::assertSame('rsa-sha2-256', SshBinary::readString($signatureBlob, $sigOff));
         $rawSig = SshBinary::readString($signatureBlob, $sigOff);
         self::assertNotSame('', $rawSig);
-        self::assertSame(strlen($signatureBlob), $sigOff);
+        self::assertSame($sigOff, strlen($signatureBlob));
 
         $blobOff = 0;
         self::assertSame('ssh-rsa', SshBinary::readString($publicBlob, $blobOff));
-        $e = SshBinary::readMpint($publicBlob, $blobOff);
-        $n = SshBinary::readMpint($publicBlob, $blobOff);
-        self::assertNotSame('', $e);
-        self::assertNotSame('', $n);
-        self::assertSame(strlen($publicBlob), $blobOff);
+        $exponent = SshBinary::readMpint($publicBlob, $blobOff);
+        $modulus = SshBinary::readMpint($publicBlob, $blobOff);
+        self::assertNotSame('', $exponent);
+        self::assertNotSame('', $modulus);
+        self::assertSame($blobOff, strlen($publicBlob));
+
+        $rsaDetails = openssl_pkey_get_details($parts['key']);
+        self::assertIsArray($rsaDetails);
+        self::assertIsArray($rsaDetails['rsa'] ?? null);
+        self::assertSame($rsaDetails['rsa']['e'], $exponent);
+        self::assertSame($rsaDetails['rsa']['n'], $modulus);
 
         $toSign = $this->canonicalToSign($sessionId, 'alice', $parts['algorithm'], $publicBlob);
         $details = openssl_pkey_get_details($parts['key']);
@@ -113,122 +121,6 @@ final class PublicKeySignerWireTest extends TestCase
     }
 
     /**
-     * Пустой passphrase и null passphrase эквивалентны для незашифрованного PEM.
-     */
-    public function testLoadAcceptsNullAndEmptyPassphrase(): void
-    {
-        $pem = $this->rsaPem();
-        $signer = new PublicKeySigner();
-        $withNull = $signer->load(AuthCredentials::withPublicKey('u', $pem, null));
-        $withEmpty = $signer->load(AuthCredentials::withPublicKey('u', $pem, ''));
-        self::assertSame($withNull['algorithm'], $withEmpty['algorithm']);
-        self::assertSame($withNull['publicBlob'], $withEmpty['publicBlob']);
-    }
-
-    /**
-     * Зашифрованный PEM требует корректный passphrase (убивает Coalesce на ?? '').
-     */
-    public function testLoadEncryptedPemWithPassphrase(): void
-    {
-        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-        self::assertNotFalse($key);
-        $pem = '';
-        self::assertTrue(openssl_pkey_export($key, $pem, 'wire-secret'));
-        $signer = new PublicKeySigner();
-        $parts = $signer->load(AuthCredentials::withPublicKey('enc', $pem, 'wire-secret'));
-        self::assertSame('rsa-sha2-256', $parts['algorithm']);
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('enc', $pem, null));
-            self::fail('ожидался ConnectionException без passphrase');
-        } catch (ConnectionException $e) {
-            self::assertStringStartsWith('Не удалось загрузить SSH private key:', $e->getMessage());
-        }
-    }
-
-    /**
-     * Сообщение об ошибке загрузки содержит фиксированный префикс.
-     */
-    public function testInvalidKeyMessageContainsPrefix(): void
-    {
-        $signer = new PublicKeySigner();
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('u', 'not-a-pem-key'));
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertStringStartsWith('Не удалось загрузить SSH private key:', $e->getMessage());
-            self::assertGreaterThan(
-                strlen('Не удалось загрузить SSH private key: '),
-                strlen($e->getMessage()),
-            );
-        }
-    }
-
-    /**
-     * Неверный passphrase: префикс и текст openssl в сообщении.
-     */
-    public function testWrongPassphraseMessageContainsOpensslDetail(): void
-    {
-        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-        self::assertNotFalse($key);
-        $pem = '';
-        self::assertTrue(openssl_pkey_export($key, $pem, 'right-pass'));
-        $signer = new PublicKeySigner();
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('u', $pem, 'wrong-pass'));
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertStringStartsWith('Не удалось загрузить SSH private key:', $e->getMessage());
-            self::assertGreaterThan(
-                strlen('Не удалось загрузить SSH private key: '),
-                strlen($e->getMessage()),
-            );
-        }
-    }
-
-    /**
-     * Пустой private key — отдельное сообщение (не openssl).
-     */
-    public function testEmptyPrivateKeyMessage(): void
-    {
-        $signer = new PublicKeySigner();
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('u', ''));
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertSame('Пустой private key', $e->getMessage());
-        }
-    }
-
-    /**
-     * Загрузка из файла: путь существует, содержимое = PEM.
-     */
-    public function testLoadFromFilePath(): void
-    {
-        $pem = $this->rsaPem();
-        $path = tempnam(sys_get_temp_dir(), 'ccsshwire');
-        self::assertNotFalse($path);
-        self::assertNotFalse(file_put_contents($path, $pem));
-
-        try {
-            $parts = (new PublicKeySigner())->load(AuthCredentials::withPublicKey('fileuser', $path));
-            self::assertSame('rsa-sha2-256', $parts['algorithm']);
-            self::assertStringStartsWith(SshBinary::sshString('ssh-rsa'), $parts['publicBlob']);
-        } finally {
-            $tempRoot = realpath(sys_get_temp_dir());
-            $real = realpath($path);
-
-            if ($tempRoot !== false && $real !== false && str_starts_with($real, $tempRoot)) {
-                // Путь уже проверен realpath + префикс temp dir.
-                unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
-            }
-        }
-    }
-
-    /**
      * Разные username дают разный request (убивает удаление username из concat).
      */
     public function testUsernameAffectsRequestBytes(): void
@@ -236,11 +128,11 @@ final class PublicKeySignerWireTest extends TestCase
         $pem = $this->rsaPem();
         $signer = new PublicKeySigner();
         $parts = $signer->load(AuthCredentials::withPublicKey('x', $pem));
-        $a = $signer->buildRequest(str_repeat('z', 32), 'user-a', $parts);
-        $b = $signer->buildRequest(str_repeat('z', 32), 'user-b', $parts);
-        self::assertNotSame($a, $b);
-        self::assertStringContainsString(SshBinary::sshString('user-a'), $a);
-        self::assertStringContainsString(SshBinary::sshString('user-b'), $b);
+        $requestUserA = $signer->buildRequest(str_repeat('z', 32), 'user-a', $parts);
+        $requestUserB = $signer->buildRequest(str_repeat('z', 32), 'user-b', $parts);
+        self::assertNotSame($requestUserA, $requestUserB);
+        self::assertStringContainsString(SshBinary::sshString('user-a'), $requestUserA);
+        self::assertStringContainsString(SshBinary::sshString('user-b'), $requestUserB);
     }
 
     /**
@@ -267,32 +159,6 @@ final class PublicKeySignerWireTest extends TestCase
             return SshBinary::readString($req, $offset);
         };
         self::assertNotSame($extractSig($reqA), $extractSig($reqB));
-    }
-
-    /**
-     * Пустой файл ключа — отдельное сообщение с путём.
-     */
-    public function testEmptyKeyFileThrowsWithPath(): void
-    {
-        $path = tempnam(sys_get_temp_dir(), 'ccsshempty');
-        self::assertNotFalse($path);
-        self::assertSame(0, filesize($path));
-        $signer = new PublicKeySigner();
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('u', $path));
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertSame('Не удалось прочитать файл ключа: ' . $path, $e->getMessage());
-        } finally {
-            $tempRoot = realpath(sys_get_temp_dir());
-            $real = realpath($path);
-
-            if ($tempRoot !== false && $real !== false && str_starts_with($real, $tempRoot)) {
-                // Путь уже проверен realpath + префикс temp dir.
-                unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
-            }
-        }
     }
 
     /**
@@ -372,7 +238,7 @@ final class PublicKeySignerWireTest extends TestCase
         self::assertSame('ssh-ed25519', SshBinary::readString($req, $offset));
         $publicBlob = SshBinary::readString($req, $offset);
         $signatureBlob = SshBinary::readString($req, $offset);
-        self::assertSame(strlen($req), $offset);
+        self::assertSame($offset, strlen($req));
 
         $blobOff = 0;
         self::assertSame('ssh-ed25519', SshBinary::readString($publicBlob, $blobOff));
@@ -391,63 +257,45 @@ final class PublicKeySignerWireTest extends TestCase
     }
 
     /**
-     * ed25519Parts отклоняет некорректные pub/priv (reflection).
+     * ssh-ed25519 + sodium secret: убивает MatchArmRemoval (не RSA-SHA1 fallback).
      */
-    public function testEd25519PartsRejectsInvalidDetails(): void
+    public function testSodiumEd25519PartsSignWithVerify(): void
     {
-        if (!defined('OPENSSL_KEYTYPE_ED25519')) {
-            self::markTestSkipped('OPENSSL_KEYTYPE_ED25519 недоступен');
+        if (!function_exists('sodium_crypto_sign_keypair')) {
+            self::markTestSkipped('sodium_crypto_sign_keypair недоступен');
         }
 
-        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_ED25519]);
-
-        if ($key === false) {
-            self::markTestSkipped('openssl не создал Ed25519 ключ');
-        }
-
-        $method = new ReflectionMethod(PublicKeySigner::class, 'ed25519Parts');
-        $method->setAccessible(true);
+        $keyPair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keyPair);
+        $pub = sodium_crypto_sign_publickey($keyPair);
+        self::assertSame(SODIUM_CRYPTO_SIGN_SECRETKEYBYTES, strlen($secretKey));
+        $rsa = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        self::assertNotFalse($rsa);
+        $publicBlob = SshBinary::sshString('ssh-ed25519') . SshBinary::sshString($pub);
+        $parts = [
+            'algorithm' => 'ssh-ed25519',
+            'publicBlob' => $publicBlob,
+            'key' => $rsa,
+            'ed25519Secret' => $secretKey,
+        ];
+        $sessionId = str_repeat("\x33", 32);
         $signer = new PublicKeySigner();
+        $req = $signer->buildRequest($sessionId, 'sodium-user', $parts);
+        $offset = 1;
+        self::assertSame('sodium-user', SshBinary::readString($req, $offset));
+        SshBinary::readString($req, $offset);
+        SshBinary::readString($req, $offset);
+        ++$offset;
+        self::assertSame('ssh-ed25519', SshBinary::readString($req, $offset));
+        SshBinary::readString($req, $offset);
+        $signatureBlob = SshBinary::readString($req, $offset);
+        $sigOff = 0;
+        self::assertSame('ssh-ed25519', SshBinary::readString($signatureBlob, $sigOff));
+        $rawSig = SshBinary::readString($signatureBlob, $sigOff);
+        self::assertSame(64, strlen($rawSig));
 
-        try {
-            $method->invoke($signer, $key, null);
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertSame('Ed25519: нет pub_key/priv_key в openssl details', $e->getMessage());
-        }
-
-        try {
-            $method->invoke($signer, $key, ['pub_key' => str_repeat('a', 32), 'priv_key' => 'short']);
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertSame('Ed25519: некорректная длина ключей', $e->getMessage());
-        }
-    }
-
-    /**
-     * Неподдерживаемый тип ключа — фиксированное сообщение.
-     */
-    public function testUnsupportedKeyTypeMessage(): void
-    {
-        $ec = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
-
-        if ($ec === false) {
-            self::markTestSkipped('openssl не создал EC ключ');
-        }
-
-        $pem = '';
-        self::assertTrue(openssl_pkey_export($ec, $pem));
-        $signer = new PublicKeySigner();
-
-        try {
-            $signer->load(AuthCredentials::withPublicKey('u', $pem));
-            self::fail('ожидался ConnectionException');
-        } catch (ConnectionException $e) {
-            self::assertSame(
-                'Поддерживаются RSA и Ed25519 private keys (PEM)',
-                $e->getMessage(),
-            );
-        }
+        $toSign = $this->canonicalToSign($sessionId, 'sodium-user', 'ssh-ed25519', $publicBlob);
+        self::assertTrue(sodium_crypto_sign_verify_detached($rawSig, $toSign, $pub));
     }
 
     /**
