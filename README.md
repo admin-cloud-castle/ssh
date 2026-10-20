@@ -42,7 +42,7 @@ Production-ready PHP 8.1+ библиотека Ssh (CloudCastle).
 [![Maintainability](https://qlty.sh/gh/admin-cloud-castle/projects/ssh/maintainability.svg)](https://qlty.sh/gh/admin-cloud-castle/projects/ssh)
 [![Qlty Coverage](https://qlty.sh/gh/admin-cloud-castle/projects/ssh/coverage.svg)](https://qlty.sh/gh/admin-cloud-castle/projects/ssh)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/admin-cloud-castle/ssh/badge)](https://scorecard.dev/viewer/?uri=github.com/admin-cloud-castle/ssh)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects?as=badge&url=https%3A%2F%2Fgithub.com%2Fadmin-cloud-castle%2Fssh)](https://www.bestpractices.dev/projects?as=entry&url=https%3A%2F%2Fgithub.com%2Fadmin-cloud-castle%2Fssh)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15724/badge)](https://www.bestpractices.dev/projects/15724)
 [![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=admin-cloud-castle_ssh&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=admin-cloud-castle_ssh)
 [![Snyk](https://snyk.io/test/github/admin-cloud-castle/ssh/badge.svg)](https://snyk.io/test/github/admin-cloud-castle/ssh)
 [![Codacy](https://img.shields.io/badge/Codacy-dashboard-blue)](https://app.codacy.com/gh/admin-cloud-castle/ssh/dashboard)
