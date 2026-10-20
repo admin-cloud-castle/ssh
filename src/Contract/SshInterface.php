@@ -5,12 +5,37 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Contract;
 
 /**
- * Контракт публичного API пакета Ssh.
+ * Публичный фасад пакета.
  */
 interface SshInterface
 {
     /**
-     * Возвращает идентификатор пакета Composer.
+     * Идентификатор Composer-пакета.
      */
     public function name(): string;
+
+    /**
+     * Синхронное подключение.
+     */
+    public function connect(
+        string $endpoint,
+        AuthCredentials $auth,
+        ?ConnectionOptions $options = null,
+        bool $sftp = false,
+    ): SessionInterface;
+
+    /**
+     * Фабрика сессий.
+     */
+    public function factory(): SessionFactoryInterface;
+
+    /**
+     * Пул сессий.
+     */
+    public function pool(): SessionPoolInterface;
+
+    /**
+     * Async-рантайм на Fiber.
+     */
+    public function async(): AsyncRuntimeInterface;
 }

@@ -7,8 +7,8 @@ namespace CloudCastle\Ssh\Exception;
 use RuntimeException;
 
 /**
- * Базовое исключение пакета Ssh.
+ * Базовое исключение пакета cloud-castle/ssh.
  */
-final class SshException extends RuntimeException
+class SshException extends RuntimeException
 {
 }
