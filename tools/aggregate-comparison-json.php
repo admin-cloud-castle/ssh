@@ -16,7 +16,7 @@ if ($files === []) {
     exit(1);
 }
 
-/** @var array<string, list<array{ns_per_op: float, memory_delta: int}>> $acc */
+/** @var array<string, list<array{ns_per_op: float, memory_delta: int, available: bool}>> $acc */
 $acc = [];
 /** @var list<string> $phps */
 $phps = [];
@@ -53,6 +53,7 @@ foreach ($files as $file) {
 
         $nsPerOp = 0.0;
         $memoryDelta = 0;
+        $available = ($benchRow['available'] ?? true) !== false;
 
         if (
             array_key_exists('ns_per_op', $benchRow)
@@ -70,6 +71,7 @@ foreach ($files as $file) {
         $acc[$name][] = [
             'ns_per_op' => $nsPerOp,
             'memory_delta' => $memoryDelta,
+            'available' => $available,
         ];
     }
 }
@@ -82,18 +84,23 @@ $avg = [
 ];
 
 foreach ($acc as $name => $samples) {
-    $n = count($samples);
+    $availableSamples = array_values(array_filter(
+        $samples,
+        static fn (array $sample): bool => $sample['available'],
+    ));
+    $n = count($availableSamples);
     $sumNs = 0.0;
     $sumMem = 0;
 
-    foreach ($samples as $sample) {
+    foreach ($availableSamples as $sample) {
         $sumNs += $sample['ns_per_op'];
         $sumMem += $sample['memory_delta'];
     }
 
     $avg['benches'][$name] = [
-        'ns_per_op' => $sumNs / (float) max(1, $n),
-        'memory_delta' => (int) round($sumMem / max(1, $n)),
+        'ns_per_op' => $n > 0 ? $sumNs / (float) $n : 0.0,
+        'memory_delta' => $n > 0 ? (int) round($sumMem / $n) : 0,
+        'available' => $n > 0,
     ];
 }
 

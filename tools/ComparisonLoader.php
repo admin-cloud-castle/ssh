@@ -142,6 +142,84 @@ final class ComparisonLoader
     }
 
     /**
+     * Сценарии производительности: метрика → ключи бенчмарков по пакетам.
+     *
+     * @return list<array{metric: string, benches: array<string, string|null>}>
+     */
+    public static function perf(): array
+    {
+        /** @var list<array{metric: string, benches: array<string, string|null>}> $rows */
+        $rows = [];
+        $raw = self::loadJsonList('comparison-perf.json');
+
+        foreach (array_keys($raw) as $index) {
+            if (!isset($raw[$index]) || !is_array($raw[$index])) {
+                continue;
+            }
+
+            $metric = $raw[$index]['metric'] ?? null;
+            $benchesRaw = $raw[$index]['benches'] ?? null;
+
+            if (!is_string($metric) || !is_array($benchesRaw)) {
+                continue;
+            }
+
+            /** @var array<string, string|null> $benches */
+            $benches = [];
+
+            foreach (array_keys($benchesRaw) as $key) {
+                if (!is_string($key)) {
+                    continue;
+                }
+
+                $benchKey = $benchesRaw[$key] ?? null;
+                $benches[$key] = is_string($benchKey) ? $benchKey : null;
+            }
+
+            $rows[] = [
+                'metric' => $metric,
+                'benches' => $benches,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Пороги качества: метрика + порог + кто выполняет среди аналогов.
+     *
+     * @return list<array{metric: string, threshold: string, packages: array<string, bool>}>
+     */
+    public static function thresholds(): array
+    {
+        /** @var list<array{metric: string, threshold: string, packages: array<string, bool>}> $rows */
+        $rows = [];
+        $raw = self::loadJsonList('comparison-thresholds.json');
+
+        foreach (array_keys($raw) as $index) {
+            if (!isset($raw[$index]) || !is_array($raw[$index])) {
+                continue;
+            }
+
+            $metric = $raw[$index]['metric'] ?? null;
+            $threshold = $raw[$index]['threshold'] ?? null;
+            $packages = $raw[$index]['packages'] ?? null;
+
+            if (!is_string($metric) || !is_string($threshold) || !is_array($packages)) {
+                continue;
+            }
+
+            $rows[] = [
+                'metric' => $metric,
+                'threshold' => $threshold,
+                'packages' => self::boolMap($packages),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * @return array<array-key, mixed>
      */
     private static function loadJson(string $filename): array

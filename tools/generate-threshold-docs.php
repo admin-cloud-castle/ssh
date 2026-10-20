@@ -1,29 +1,46 @@
 <?php
 
 /**
- * Генератор порогов качества (THRESHOLDS) во все Comparison.md.
+ * Генератор порогов качества (THRESHOLDS) во все Comparison.md — матрица по всем аналогам.
  */
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use CloudCastle\Ssh\Tools\ComparisonLoader;
 use CloudCastle\Ssh\Tools\ComparisonMarkdown;
 
 $root = dirname(__DIR__);
+$packages = ComparisonLoader::packages();
+$order = $packages['order'];
+$labels = $packages['labels'];
 $productName = 'cloud-castle/ssh';
 
+$pkgHeader = [];
+
+foreach ($order as $key) {
+    $pkgHeader[] = $key === 'ours' ? $productName : ($labels[$key] ?? $key);
+}
+
+/** @var list<list<string>> $body */
+$body = [];
+
+foreach (ComparisonLoader::thresholds() as $row) {
+    $flags = $row['packages'];
+    $cells = [$row['metric'], $row['threshold']];
+
+    foreach ($order as $key) {
+        $cells[] = ($flags[$key] ?? false) ? '✅' : '❌';
+    }
+
+    $cells[] = ComparisonMarkdown::boolWinner($flags, $order, $labels, $productName);
+    $body[] = $cells;
+}
+
 $table = ComparisonMarkdown::table(
-    ['Метрика', 'Порог', '🏆 Победитель'],
-    [
-        ['Покрытие строк (per-file)', '≥ 99.8%', $productName],
-        ['Infection MSI', '100%', $productName],
-        ['PHPStan', 'level max', $productName],
-        ['Psalm', 'errorLevel 1', $productName],
-        ['PHPCS', 'PSR-12', $productName],
-        ['PHPMD', 'clean (правила проекта)', $productName],
-        ['Deptrac', '0 нарушений слоёв', $productName],
-    ],
+    array_merge(['Метрика', 'Порог'], $pkgHeader, ['🏆 Победитель']),
+    $body,
 );
 
 $targets = [

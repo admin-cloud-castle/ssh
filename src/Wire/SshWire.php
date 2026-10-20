@@ -162,31 +162,42 @@ final class SshWire
     public function receive(): string
     {
         if (!$this->encrypted) {
-            $header = $this->readExact(5);
-            $offset = 0;
-            $packetLength = SshBinary::readUint32($header, $offset);
-            $paddingLength = ord($header[4]);
-            $rest = $this->readExact($packetLength - 1);
-            $payloadLength = $packetLength - $paddingLength - 1;
-            ++$this->recvSeq;
-
-            return substr($rest, 0, $payloadLength);
+            return $this->receivePlaintext();
         }
 
-        $firstBlock = $this->readExact(16);
-        $plainHeader = openssl_decrypt(
-            $firstBlock,
-            'aes-128-ctr',
-            $this->serverToClientKey,
-            OPENSSL_RAW_DATA,
-            $this->serverToClientIv,
-        );
+        return $this->receiveEncrypted();
+    }
 
-        if ($plainHeader === false) { // @codeCoverageIgnore
-            throw new ConnectionException('SSH decrypt header не удался'); // @codeCoverageIgnore
-        }
+    /**
+     * Читает plaintext binary packet (до NEWKEYS).
+     *
+     * @return string Payload без padding
+     *
+     * @throws ConnectionException При ошибке чтения
+     */
+    private function receivePlaintext(): string
+    {
+        $header = $this->readExact(5);
+        $offset = 0;
+        $packetLength = SshBinary::readUint32($header, $offset);
+        $paddingLength = ord($header[4]);
+        $rest = $this->readExact($packetLength - 1);
+        $payloadLength = $packetLength - $paddingLength - 1;
+        ++$this->recvSeq;
 
-        $this->serverToClientIv = $this->advanceCtr($this->serverToClientIv, 1);
+        return substr($rest, 0, $payloadLength);
+    }
+
+    /**
+     * Читает AES-CTR + HMAC-SHA256 packet после NEWKEYS.
+     *
+     * @return string Payload без padding
+     *
+     * @throws ConnectionException При decrypt/MAC/длине
+     */
+    private function receiveEncrypted(): string
+    {
+        $plainHeader = $this->decryptBlock($this->readExact(16));
         $offset = 0;
         $packetLength = SshBinary::readUint32($plainHeader, $offset);
         $paddingLength = ord($plainHeader[4]);
@@ -196,39 +207,67 @@ final class SshWire
             throw new ConnectionException('SSH: некорректный packet_length'); // @codeCoverageIgnore
         }
 
-        $restEnc = $remaining > 0 ? $this->readExact($remaining) : '';
-        $restPlain = $restEnc === '' ? '' : openssl_decrypt(
-            $restEnc,
+        $restPlain = $remaining > 0 ? $this->decryptBlock($this->readExact($remaining), $remaining) : '';
+        $packet = $plainHeader . $restPlain;
+        $this->assertMac($packet);
+        ++$this->recvSeq;
+
+        return substr($packet, 5, $packetLength - $paddingLength - 1);
+    }
+
+    /**
+     * Расшифровывает блок(и) AES-128-CTR и сдвигает IV.
+     *
+     * @param string $cipher Текст ciphertext
+     * @param int    $length Число байт для сдвига CTR (0 = один блок 16)
+     *
+     * @return string Plaintext
+     *
+     * @throws ConnectionException При openssl_decrypt === false
+     */
+    private function decryptBlock(string $cipher, int $length = 16): string
+    {
+        $plain = openssl_decrypt(
+            $cipher,
             'aes-128-ctr',
             $this->serverToClientKey,
             OPENSSL_RAW_DATA,
             $this->serverToClientIv,
         );
 
-        if ($restPlain === false) { // @codeCoverageIgnore
-            throw new ConnectionException('SSH decrypt body не удался'); // @codeCoverageIgnore
+        if ($plain === false) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH decrypt не удался'); // @codeCoverageIgnore
         }
 
-        if ($remaining > 0) {
-            $this->serverToClientIv = $this->advanceCtr($this->serverToClientIv, (int) ($remaining / 16));
-        }
+        $this->serverToClientIv = $this->advanceCtr($this->serverToClientIv, (int) ($length / 16));
 
-        $packet = $plainHeader . $restPlain;
+        return $plain;
+    }
+
+    /**
+     * Проверяет HMAC-SHA256 пакета.
+     *
+     * @param string $packet Полный plaintext packet (length||pad||payload||padding)
+     *
+     * @throws ConnectionException При несовпадении MAC
+     */
+    private function assertMac(string $packet): void
+    {
         $mac = $this->readExact(32);
-        $expected = hash_hmac('sha256', SshBinary::uint32($this->recvSeq) . $packet, $this->serverToClientMacKey, true);
+        $expected = hash_hmac(
+            'sha256',
+            SshBinary::uint32($this->recvSeq) . $packet,
+            $this->serverToClientMacKey,
+            true,
+        );
 
         if (!hash_equals($expected, $mac)) { // @codeCoverageIgnore
             throw new ConnectionException('SSH MAC mismatch'); // @codeCoverageIgnore
         }
-
-        ++$this->recvSeq;
-        $payloadLength = $packetLength - $paddingLength - 1;
-
-        return substr($packet, 5, $payloadLength);
     }
 
     /**
-     * Закрывает underlying stream и обнуляет ссылку.
+     * Закрывает underlying stream, обнуляет ссылку и затирает криптоматериал.
      */
     public function close(): void
     {
@@ -238,6 +277,24 @@ final class SshWire
         if (is_resource($stream)) {
             fclose($stream);
         }
+
+        $this->wipeSecrets();
+    }
+
+    /**
+     * Затирает ключи/IV/MAC и сбрасывает sequence numbers после закрытия соединения.
+     */
+    private function wipeSecrets(): void
+    {
+        $this->clientToServerKey = '';
+        $this->serverToClientKey = '';
+        $this->clientToServerIv = '';
+        $this->serverToClientIv = '';
+        $this->clientToServerMacKey = '';
+        $this->serverToClientMacKey = '';
+        $this->encrypted = false;
+        $this->sendSeq = 0;
+        $this->recvSeq = 0;
     }
 
     /**

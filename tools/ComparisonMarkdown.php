@@ -10,7 +10,7 @@ namespace CloudCastle\Ssh\Tools;
 final class ComparisonMarkdown
 {
     /**
-     * Победитель булевой строки: наш пакет, если ✅; иначе все с ✅; иначе —.
+     * Победители булевой строки: все пакеты с ✅ (через запятую); иначе —.
      *
      * @param array<string, bool>   $flags
      * @param list<string>          $order
@@ -22,27 +22,21 @@ final class ComparisonMarkdown
         array $labels,
         string $productName,
     ): string {
-        if (($flags['ours'] ?? false) === true) {
-            return $productName;
-        }
-
         $names = [];
 
         foreach ($order as $key) {
-            if ($key === 'ours') {
+            if (($flags[$key] ?? false) !== true) {
                 continue;
             }
 
-            if (($flags[$key] ?? false) === true) {
-                $names[] = $labels[$key] ?? $key;
-            }
+            $names[] = $key === 'ours' ? $productName : ($labels[$key] ?? $key);
         }
 
         return $names === [] ? '—' : implode(', ', $names);
     }
 
     /**
-     * Победитель числовой метрики (меньше — лучше) среди сопоставимых значений.
+     * Победители числовой метрики (меньше — лучше): все с минимальным значением.
      *
      * @param array<string, float|int|null> $values null — не участвует в конкурсе
      * @param list<string>                  $order
@@ -55,7 +49,6 @@ final class ComparisonMarkdown
         string $productName,
     ): string {
         $best = null;
-        $winnerKey = null;
 
         foreach ($order as $key) {
             if (!array_key_exists($key, $values)) {
@@ -76,15 +69,57 @@ final class ComparisonMarkdown
 
             if ($best === null || $numeric < $best) {
                 $best = $numeric;
-                $winnerKey = $key;
             }
         }
 
-        if ($winnerKey === null) {
+        if ($best === null) {
             return '—';
         }
 
-        return $winnerKey === 'ours' ? $productName : ($labels[$winnerKey] ?? $winnerKey);
+        $names = [];
+
+        foreach ($order as $key) {
+            if (!array_key_exists($key, $values)) {
+                continue;
+            }
+
+            $value = $values[$key];
+
+            if ($value === null) {
+                continue;
+            }
+
+            $numeric = (float) $value;
+
+            if ($numeric < 0.0) {
+                continue;
+            }
+
+            if (!self::isTiedBest($numeric, $best)) {
+                continue;
+            }
+
+            $names[] = $key === 'ours' ? $productName : ($labels[$key] ?? $key);
+        }
+
+        return $names === [] ? '—' : implode(', ', $names);
+    }
+
+    /**
+     * Считает значения равными лучшему (допуск на float-шум бенчмарков).
+     */
+    private static function isTiedBest(float $value, float $best): bool
+    {
+        $absTol = 1e-6;
+        $relTol = 1e-9;
+
+        if (abs($value - $best) <= $absTol) {
+            return true;
+        }
+
+        $scale = max(abs($best), abs($value), 1.0);
+
+        return abs($value - $best) / $scale <= $relTol;
     }
 
     /**
@@ -130,7 +165,14 @@ final class ComparisonMarkdown
         $sections = [
             'FEATURES' => "## Функции\n\n<!-- FEATURES:START -->\n<!-- FEATURES:END -->",
             'PERF' => "## Производительность\n\n<!-- PERF:START -->\n<!-- PERF:END -->",
-            'MEMORY' => "## Память\n\n<!-- MEMORY:START -->\n<!-- MEMORY:END -->",
+            'MEMORY' => "## Память\n\n"
+                . "Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — "
+                . "аллокации пакета под нагрузкой, не весь процесс.\n\n"
+                . "<!-- MEMORY:START -->\n<!-- MEMORY:END -->",
+            'MEMORY_LEAKS' => "## Утечки памяти\n\n"
+                . "После нагрузки и `unset`+`gc_collect_cycles`: остаточный прирост emalloc "
+                . "(вычтена стоимость пустого цикла).\n\n"
+                . "<!-- MEMORY_LEAKS:START -->\n<!-- MEMORY_LEAKS:END -->",
             'QUALITY' => "## Качество кода\n\n<!-- QUALITY:START -->\n<!-- QUALITY:END -->",
             'SECURITY' => "## Безопасность\n\n<!-- SECURITY:START -->\n<!-- SECURITY:END -->",
             'SECURITY_STANDARDS' => "## Соответствие стандартам безопасности\n\n"
@@ -141,9 +183,21 @@ final class ComparisonMarkdown
         foreach ($sections as $name => $block) {
             $marker = '<!-- ' . $name . ':START -->';
 
-            if (!str_contains($content, $marker)) {
-                $content = rtrim($content) . "\n\n" . $block . "\n";
+            if (str_contains($content, $marker)) {
+                continue;
             }
+
+            if ($name === 'MEMORY_LEAKS' && str_contains($content, '<!-- MEMORY:END -->')) {
+                $content = str_replace(
+                    '<!-- MEMORY:END -->',
+                    "<!-- MEMORY:END -->\n\n" . $block,
+                    $content,
+                );
+
+                continue;
+            }
+
+            $content = rtrim($content) . "\n\n" . $block . "\n";
         }
 
         return $content;

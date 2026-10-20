@@ -57,6 +57,8 @@ final class MockSshPeer
             2 => ['pipe', 'w'],
         ];
         $pipes = [];
+        // Фиксированный PHP-скрипты тестов (не пользовательский ввод).
+        // nosemgrep: php.lang.security.exec-use.exec-use, php_exec_rule-exec-use
         $process = proc_open($cmd, $descriptors, $pipes, dirname(__DIR__, 2));
 
         if ($process === false) {
@@ -123,7 +125,7 @@ final class MockSshPeer
                 $raw = trim((string) file_get_contents($portFile));
 
                 if ($raw !== '' && ctype_digit($raw)) {
-                    @unlink($portFile);
+                    self::unlinkTempFile($portFile);
 
                     return (int) $raw;
                 }
@@ -133,5 +135,20 @@ final class MockSshPeer
         }
 
         throw new RuntimeException('mock server port timeout');
+    }
+
+    /**
+     * Удаляет файл только внутри sys_get_temp_dir().
+     */
+    private static function unlinkTempFile(string $path): void
+    {
+        $tempRoot = realpath(sys_get_temp_dir());
+        $real = realpath($path);
+
+        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
+            return;
+        }
+
+        unlink($real);
     }
 }

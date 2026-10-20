@@ -114,7 +114,9 @@ jobs:
           fi
           "${ocular_bin}" "${args[@]}"
 
+      # Infection тяжёлый: только на одной версии PHP (остальные matrix-джобы иначе «висят» часами).
       - name: Tests mutation
+        if: matrix.php == '8.3'
         run: composer test:mutation
 
       - name: Meta

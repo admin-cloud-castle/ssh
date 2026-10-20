@@ -266,7 +266,7 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * Отправляет SSH_MSG_DISCONNECT (reason 11) и закрывает wire; идемпотентно.
+     * Отправляет SSH_MSG_DISCONNECT (reason 11), закрывает wire и затирает session-state; идемпотентно.
      */
     #[\Override]
     public function disconnect(): void
@@ -288,6 +288,29 @@ final class NativeSession implements SessionInterface
 
         $this->wire->close();
         $this->connected = false;
+        $this->wipeSessionState();
+    }
+
+    /**
+     * Гарантирует disconnect при уничтожении объекта (нет утечки сокета/ключей без явного close).
+     */
+    public function __destruct()
+    {
+        $this->disconnect();
+    }
+
+    /**
+     * Обнуляет буферы и идентификаторы сессии после закрытия транспорта.
+     */
+    private function wipeSessionState(): void
+    {
+        $this->serverId = '';
+        $this->sessionId = '';
+        $this->subsystem = '';
+        $this->channelBuffer = '';
+        $this->hostKeyBlob = '';
+        $this->remoteChannel = 0;
+        $this->channelEof = false;
     }
 
     /**

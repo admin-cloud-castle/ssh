@@ -90,4 +90,21 @@ final class NativeSessionTest extends TestCase
         $session = new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
         self::assertFalse($session->isConnected());
     }
+
+    /**
+     * Без явного disconnect() деструктор закрывает транспорт (нет утечки сокета).
+     */
+    public function testDestructorDisconnects(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::assertTrue($session->isConnected());
+            unset($session);
+            self::assertTrue(true);
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
 }

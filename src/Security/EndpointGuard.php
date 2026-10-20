@@ -92,36 +92,70 @@ final class EndpointGuard
     public function extractPort(string $endpoint): int
     {
         if (str_contains($endpoint, '://')) {
-            $parts = parse_url($endpoint);
-
-            if (is_array($parts) && isset($parts['port'])) {
-                return $parts['port'];
-            }
-
-            return 22;
+            return $this->portFromUrl($endpoint);
         }
 
         if (str_starts_with($endpoint, '[')) {
-            $end = strpos($endpoint, ']');
-
-            if ($end !== false && isset($endpoint[$end + 1]) && $endpoint[$end + 1] === ':') {
-                $port = substr($endpoint, $end + 2);
-
-                if (ctype_digit($port)) {
-                    return (int) $port;
-                }
-            }
-
-            return 22;
+            return $this->portFromBracket($endpoint);
         }
 
-        $colon = strrpos($endpoint, ':');
+        return $this->portFromHostPort($endpoint);
+    }
 
-        if (is_int($colon) && ctype_digit(substr($endpoint, $colon + 1))) {
-            return (int) substr($endpoint, $colon + 1);
+    /**
+     * Порт из URL со схемой (ssh://host:port).
+     *
+     * @param string $endpoint Endpoint с ://
+     *
+     * @return int Порт из URL или 22
+     */
+    private function portFromUrl(string $endpoint): int
+    {
+        $parts = parse_url($endpoint);
+
+        if (is_array($parts) && isset($parts['port'])) {
+            return $parts['port'];
         }
 
         return 22;
+    }
+
+    /**
+     * Порт из IPv6-формы [addr]:port.
+     *
+     * @param string $endpoint Endpoint, начинающийся с [
+     *
+     * @return int Порт после ] или 22
+     */
+    private function portFromBracket(string $endpoint): int
+    {
+        $end = strpos($endpoint, ']');
+
+        if ($end === false || !isset($endpoint[$end + 1]) || $endpoint[$end + 1] !== ':') {
+            return 22;
+        }
+
+        $port = substr($endpoint, $end + 2);
+
+        return ctype_digit($port) ? (int) $port : 22;
+    }
+
+    /**
+     * Порт из host:port (последнее двоеточие).
+     *
+     * @param string $endpoint Host или host:port
+     *
+     * @return int Порт или 22
+     */
+    private function portFromHostPort(string $endpoint): int
+    {
+        $colon = strrpos($endpoint, ':');
+
+        if (!is_int($colon) || !ctype_digit(substr($endpoint, $colon + 1))) {
+            return 22;
+        }
+
+        return (int) substr($endpoint, $colon + 1);
     }
 
     /**

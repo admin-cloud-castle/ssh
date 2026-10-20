@@ -36,7 +36,7 @@ final class PublicKeySignerTest extends TestCase
         self::assertNotFalse($path);
         self::assertTrue(openssl_pkey_export_to_file($key, $path));
         $pem = file_get_contents($path);
-        unlink($path);
+        self::unlinkTempFile($path);
         self::assertNotFalse($pem);
         self::assertNotSame('', $pem);
 
@@ -53,5 +53,20 @@ final class PublicKeySignerTest extends TestCase
         $signer = new PublicKeySigner();
         $this->expectException(ConnectionException::class);
         $signer->load(AuthCredentials::withPublicKey('u', 'not-a-key'));
+    }
+
+    /**
+     * Удаляет файл только внутри sys_get_temp_dir().
+     */
+    private static function unlinkTempFile(string $path): void
+    {
+        $tempRoot = realpath(sys_get_temp_dir());
+        $real = realpath($path);
+
+        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
+            return;
+        }
+
+        unlink($real);
     }
 }

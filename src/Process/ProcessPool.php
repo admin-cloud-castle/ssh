@@ -67,7 +67,7 @@ final class ProcessPool
      * Пишет length-prefixed serialize($result) в stream (формат child→parent).
      *
      * @param resource $stream Открытый конец socket pair (на запись)
-     * @param mixed    $result Значение для serialize (допустимые классы — любые)
+     * @param mixed    $result Значение для serialize (только массивы/скаляры — allowed_classes=false)
      */
     public function writeWorkerResult(mixed $stream, mixed $result): void
     {
@@ -200,7 +200,8 @@ final class ProcessPool
             unset($running[$done], $sockets[$done]);
 
             if ($body !== '') {
-                yield unserialize($body, ['allowed_classes' => true]);
+                // IPC только от своих fork-worker'ов; классы запрещены (массивы/скаляры).
+                yield unserialize($body, ['allowed_classes' => false]);
             }
 
             return;

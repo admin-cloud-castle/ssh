@@ -66,9 +66,65 @@ final class MockSshServer
     public function serve(): void
     {
         $this->exchangeId();
+        $this->performKeyExchange();
+
+        if (!$this->acceptServiceAndAuth()) {
+            return;
+        }
+
+        $this->handleChannels();
+    }
+
+    /**
+     * KEXINIT / KEXDH / NEWKEYS и установка ключей шифрования.
+     */
+    private function performKeyExchange(): void
+    {
         $clientKex = $this->expectType(20);
         $serverKex = $this->buildKexInit();
         $this->sendPlain($serverKex);
+        [$kMpint, $hash, $fBytes] = $this->computeDh($clientKex, $serverKex);
+        $this->sendPlain($this->buildDhReply($hash, $fBytes));
+        $this->expectType(21);
+        $this->sendPlain(chr(21));
+        $this->enableKeys($kMpint, $hash);
+    }
+
+    /**
+     * SERVICE_REQUEST / USERAUTH с опциональными reject/odd через getenv.
+     *
+     * @return bool true — можно открывать каналы
+     */
+    private function acceptServiceAndAuth(): bool
+    {
+        $svc = $this->expectType(5);
+        $off = 1;
+        $name = SshBinary::readString($svc, $off);
+        $this->send(chr(6) . SshBinary::sshString($name));
+        $this->receive();
+
+        if (getenv('CC_SSH_REJECT_AUTH') === '1') {
+            $this->send(chr(51) . SshBinary::nameList(['password']) . "\x00");
+
+            return false;
+        }
+
+        if (getenv('CC_SSH_AUTH_ODD') === '1') {
+            $this->send(chr(60));
+
+            return false;
+        }
+
+        $this->send(chr(52));
+
+        return true;
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string} kMpint, hash, fBytes
+     */
+    private function computeDh(string $clientKex, string $serverKex): array
+    {
         $dhInit = $this->expectType(30);
         $offset = 1;
         $eBytes = SshBinary::readMpint($dhInit, $offset);
@@ -91,6 +147,12 @@ final class MockSshServer
             . $kMpint,
             true,
         );
+
+        return [$kMpint, $hash, $fBytes];
+    }
+
+    private function buildDhReply(string $hash, string $fBytes): string
+    {
         $signature = '';
         $key = openssl_pkey_get_private($this->hostKeyPem);
 
@@ -102,37 +164,12 @@ final class MockSshServer
             throw new RuntimeException('host key sign failed');
         }
 
-        /** @var string $signatureBytes */
-        $signatureBytes = $signature;
-        $sigBlob = SshBinary::sshString('rsa-sha2-256') . SshBinary::sshString($signatureBytes);
-        $reply = chr(31)
+        $sigBlob = SshBinary::sshString('rsa-sha2-256') . SshBinary::sshString($signature);
+
+        return chr(31)
             . SshBinary::sshString($this->hostKeyBlob)
             . SshBinary::mpint($fBytes)
             . SshBinary::sshString($sigBlob);
-        $this->sendPlain($reply);
-        $this->expectType(21);
-        $this->sendPlain(chr(21));
-        $this->enableKeys($kMpint, $hash);
-        $svc = $this->expectType(5);
-        $off = 1;
-        $name = SshBinary::readString($svc, $off);
-        $this->send(chr(6) . SshBinary::sshString($name));
-        $this->receive();
-
-        if (getenv('CC_SSH_REJECT_AUTH') === '1') {
-            $this->send(chr(51) . SshBinary::nameList(['password']) . "\x00");
-
-            return;
-        }
-
-        if (getenv('CC_SSH_AUTH_ODD') === '1') {
-            $this->send(chr(60));
-
-            return;
-        }
-
-        $this->send(chr(52));
-        $this->handleChannels();
     }
 
     private function handleChannels(): void
@@ -144,62 +181,85 @@ final class MockSshServer
                 return;
             }
 
-            if ($packet === '') {
+            if ($packet === '' || !$this->dispatchChannelPacket($packet)) {
                 return;
             }
+        }
+    }
 
-            $type = ord($packet[0]);
+    /**
+     * @return bool false — завершить цикл каналов
+     */
+    private function dispatchChannelPacket(string $packet): bool
+    {
+        $type = ord($packet[0]);
 
-            if ($type === 1) {
-                return;
-            }
+        if ($type === 1) {
+            return false;
+        }
 
-            if ($type === 90) {
-                $off = 1;
-                SshBinary::readString($packet, $off);
-                $sender = SshBinary::readUint32($packet, $off);
-                $this->send(
-                    chr(91)
-                    . SshBinary::uint32($sender)
-                    . SshBinary::uint32(0)
-                    . SshBinary::uint32(2_097_152)
-                    . SshBinary::uint32(32_768),
-                );
-                continue;
-            }
+        if ($type === 90) {
+            $this->confirmChannelOpen($packet);
 
-            if ($type === 94) {
-                $off = 1;
-                $channel = SshBinary::readUint32($packet, $off);
-                $data = SshBinary::readString($packet, $off);
-                $this->send(chr(94) . SshBinary::uint32($channel) . SshBinary::sshString('echo:' . $data));
+            return true;
+        }
 
-                continue;
-            }
+        if ($type === 94) {
+            $this->echoChannelData($packet);
 
-            if ($type === 98) {
-                $off = 1;
-                $channel = SshBinary::readUint32($packet, $off);
-                $request = SshBinary::readString($packet, $off);
-                $want = ord($packet[$off] ?? "\x00");
-                ++$off;
+            return true;
+        }
 
-                if ($want === 1) {
-                    $this->send(chr(99) . SshBinary::uint32($channel));
-                }
+        if ($type === 98) {
+            $this->handleChannelRequest($packet);
+        }
 
-                if ($request === 'exec') {
-                    $command = SshBinary::readString($packet, $off);
-                    $output = 'mock:' . $command;
-                    $this->send(chr(94) . SshBinary::uint32($channel) . SshBinary::sshString($output));
-                    $this->send(chr(96) . SshBinary::uint32($channel));
-                    $this->send(chr(97) . SshBinary::uint32($channel));
-                }
+        return true;
+    }
 
-                if ($request === 'subsystem') {
-                    SshBinary::readString($packet, $off);
-                }
-            }
+    private function confirmChannelOpen(string $packet): void
+    {
+        $off = 1;
+        SshBinary::readString($packet, $off);
+        $sender = SshBinary::readUint32($packet, $off);
+        $this->send(
+            chr(91)
+            . SshBinary::uint32($sender)
+            . SshBinary::uint32(0)
+            . SshBinary::uint32(2_097_152)
+            . SshBinary::uint32(32_768),
+        );
+    }
+
+    private function echoChannelData(string $packet): void
+    {
+        $off = 1;
+        $channel = SshBinary::readUint32($packet, $off);
+        $data = SshBinary::readString($packet, $off);
+        $this->send(chr(94) . SshBinary::uint32($channel) . SshBinary::sshString('echo:' . $data));
+    }
+
+    private function handleChannelRequest(string $packet): void
+    {
+        $off = 1;
+        $channel = SshBinary::readUint32($packet, $off);
+        $request = SshBinary::readString($packet, $off);
+        $want = ord($packet[$off] ?? "\x00");
+        ++$off;
+
+        if ($want === 1) {
+            $this->send(chr(99) . SshBinary::uint32($channel));
+        }
+
+        if ($request === 'exec') {
+            $command = SshBinary::readString($packet, $off);
+            $this->send(chr(94) . SshBinary::uint32($channel) . SshBinary::sshString('mock:' . $command));
+            $this->send(chr(96) . SshBinary::uint32($channel));
+            $this->send(chr(97) . SshBinary::uint32($channel));
+        }
+
+        if ($request === 'subsystem') {
+            SshBinary::readString($packet, $off);
         }
     }
 
@@ -329,9 +389,9 @@ final class MockSshServer
         }
 
         $first = $this->readExact(16);
-        $plain = openssl_decrypt($first, 'aes-128-ctr', $this->c2sKey, OPENSSL_RAW_DATA, $this->c2sIv);
+        $plain = $this->decryptOrFail($first);
 
-        if (!is_string($plain) || strlen($plain) < 5) {
+        if (strlen($plain) < 5) {
             throw new RuntimeException('decrypt failed');
         }
 
@@ -341,10 +401,7 @@ final class MockSshServer
         $paddingLength = ord($plain[4]);
         $remaining = $packetLength + 4 - 16;
         $restEnc = $remaining > 0 ? $this->readExact($remaining) : '';
-        $restPlain = $restEnc === ''
-            ? ''
-            : openssl_decrypt($restEnc, 'aes-128-ctr', $this->c2sKey, OPENSSL_RAW_DATA, $this->c2sIv);
-        $rest = is_string($restPlain) ? $restPlain : '';
+        $rest = $restEnc === '' ? '' : $this->decryptOrFail($restEnc);
 
         if ($remaining > 0) {
             $this->c2sIv = $this->advance($this->c2sIv, (int) ($remaining / 16));
@@ -358,6 +415,20 @@ final class MockSshServer
         }
 
         return substr($packet, 5, $packetLength - $paddingLength - 1);
+    }
+
+    /**
+     * AES-128-CTR decrypt с явной проверкой false от openssl_decrypt.
+     */
+    private function decryptOrFail(string $cipher): string
+    {
+        $plain = openssl_decrypt($cipher, 'aes-128-ctr', $this->c2sKey, OPENSSL_RAW_DATA, $this->c2sIv);
+
+        if ($plain === false) {
+            throw new RuntimeException('decrypt failed');
+        }
+
+        return $plain;
     }
 
     private function readExact(int $n): string

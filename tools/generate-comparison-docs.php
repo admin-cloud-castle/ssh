@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Пишет PERF, MEMORY, QUALITY, SECURITY, SECURITY_STANDARDS во все Comparison.md.
+ * Пишет PERF, MEMORY, MEMORY_LEAKS, QUALITY, SECURITY, SECURITY_STANDARDS во все Comparison.md.
  */
 
 declare(strict_types=1);
@@ -17,9 +17,15 @@ $order = $packages['order'];
 $labels = $packages['labels'];
 $productName = 'cloud-castle/ssh';
 $avgPath = $root . '/var/benchmark/comparison-avg.json';
+$memoryAvgPath = $root . '/var/benchmark/memory-avg.json';
 
 if (!is_file($avgPath)) {
     fwrite(STDERR, "нет {$avgPath} — сначала: php tools/benchmark-competitors.php\n");
+    exit(1);
+}
+
+if (!is_file($memoryAvgPath)) {
+    fwrite(STDERR, "нет {$memoryAvgPath} — сначала: php -d xdebug.mode=off tools/benchmark-memory.php && php tools/aggregate-memory-json.php\n");
     exit(1);
 }
 
@@ -31,7 +37,7 @@ if (!is_array($avg) || !isset($avg['benches']) || !is_array($avg['benches'])) {
     exit(1);
 }
 
-/** @var array<string, array{ns_per_op: float, memory_delta: int}> $benches */
+/** @var array<string, array{ns_per_op: float, memory_delta: int, available: bool}> $benches */
 $benches = [];
 
 foreach ($avg['benches'] as $benchName => $benchRow) {
@@ -41,6 +47,7 @@ foreach ($avg['benches'] as $benchName => $benchRow) {
 
     $nsPerOp = 0.0;
     $memoryDelta = 0;
+    $available = ($benchRow['available'] ?? true) !== false;
 
     if (
         array_key_exists('ns_per_op', $benchRow)
@@ -58,6 +65,7 @@ foreach ($avg['benches'] as $benchName => $benchRow) {
     $benches[$benchName] = [
         'ns_per_op' => $nsPerOp,
         'memory_delta' => $memoryDelta,
+        'available' => $available && $nsPerOp > 0.0,
     ];
 }
 
@@ -115,27 +123,69 @@ $fmtMem = static function (?int $bytes): string {
     return $bytes . ' B';
 };
 
-$ns = static fn (string $key): float => $benches[$key]['ns_per_op'] ?? 0.0;
-$mem = static fn (string $key): int => $benches[$key]['memory_delta'] ?? 0;
+/**
+ * ns/op по ключу бенча или null если недоступен / нет данных.
+ */
+$nsOrNull = static function (string $key) use ($benches): ?float {
+    $row = $benches[$key] ?? null;
 
-// Только сопоставимые конструкции клиента (не class_exists / function_exists).
-$constructNs = [
-    'ours' => $ns('ours_facade_construct'),
-    'phpseclib/phpseclib' => $ns('phpseclib_ssh2_construct'),
-    'spatie/ssh' => $ns('spatie_ssh_construct'),
+    if ($row === null || !($row['available'] ?? false)) {
+        return null;
+    }
+
+    return $row['ns_per_op'];
+};
+
+$memoryRaw = file_get_contents($memoryAvgPath);
+$memoryAvg = is_string($memoryRaw) ? json_decode($memoryRaw, true) : null;
+
+if (!is_array($memoryAvg) || !isset($memoryAvg['scenarios']) || !is_array($memoryAvg['scenarios'])) {
+    fwrite(STDERR, "invalid memory-avg.json\n");
+    exit(1);
+}
+
+/**
+ * @return array{package_bytes: int, leak_bytes: int, iterations: int, available: bool}|null
+ */
+$memScenario = static function (string $key) use ($memoryAvg): ?array {
+    $row = $memoryAvg['scenarios'][$key] ?? null;
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $iterations = (int) ($row['iterations'] ?? 0);
+    $available = ($row['available'] ?? true) !== false && $iterations > 0;
+
+    if (!$available) {
+        return null;
+    }
+
+    return [
+        'package_bytes' => (int) ($row['package_bytes'] ?? 0),
+        'leak_bytes' => (int) ($row['leak_bytes'] ?? 0),
+        'iterations' => $iterations,
+        'available' => true,
+    ];
+};
+
+$oursHold = $memScenario('ours_hold_facade_stack');
+$oursChurn = $memScenario('ours_churn_session_exec');
+$oursPool = $memScenario('ours_churn_session_pool');
+$phpseclibHold = $memScenario('phpseclib_hold_ssh2');
+$spatieHold = $memScenario('spatie_hold_ssh');
+
+/** Память пакета под нагрузкой (hold N объектов, emalloc − baseline). */
+$loadHoldMem = [
+    'ours' => $oursHold['package_bytes'] ?? null,
+    'phpseclib/phpseclib' => $phpseclibHold['package_bytes'] ?? null,
+    'spatie/ssh' => $spatieHold['package_bytes'] ?? null,
     'herzult/php-ssh' => null,
     'league/flysystem-sftp-v3' => null,
     'ext-ssh2' => null,
 ];
 
-$constructMem = [
-    'ours' => $mem('ours_facade_construct'),
-    'phpseclib/phpseclib' => $mem('phpseclib_ssh2_construct'),
-    'spatie/ssh' => $mem('spatie_ssh_construct'),
-    'herzult/php-ssh' => null,
-    'league/flysystem-sftp-v3' => null,
-    'ext-ssh2' => null,
-];
+$holdN = $oursHold['iterations'] ?? 0;
 
 $pkgHeader = [
     $productName,
@@ -146,24 +196,60 @@ $pkgHeader = [
     'ext-ssh2',
 ];
 
-$perfConstructRow = [
-    'Конструкция клиента (ns/op, avg PHP ' . $phpVersions . ')',
-    $fmtNs($constructNs['ours']),
-    $fmtNs($constructNs['phpseclib/phpseclib']),
-    $fmtNs($constructNs['spatie/ssh']),
-    $fmtNs($constructNs['herzult/php-ssh']),
-    $fmtNs($constructNs['league/flysystem-sftp-v3']),
-    $fmtNs($constructNs['ext-ssh2']),
-    ComparisonMarkdown::minWinner($constructNs, $order, $labels, $productName),
-];
+/** @var list<list<string>> $perfBody */
+$perfBody = [];
 
-$perfTable = ComparisonMarkdown::table(
+foreach (ComparisonLoader::perf() as $perfRow) {
+    /** @var array<string, float|null> $values */
+    $values = [];
+    $cells = [$perfRow['metric'] . ' · PHP ' . $phpVersions];
+
+    foreach ($order as $pkgKey) {
+        $benchKey = $perfRow['benches'][$pkgKey] ?? null;
+
+        if (!is_string($benchKey)) {
+            $values[$pkgKey] = null;
+            $cells[] = '—';
+
+            continue;
+        }
+
+        $nsValue = $nsOrNull($benchKey);
+        $values[$pkgKey] = $nsValue;
+        $cells[] = $fmtNs($nsValue);
+    }
+
+    $cells[] = ComparisonMarkdown::minWinner($values, $order, $labels, $productName);
+    $perfBody[] = $cells;
+}
+
+$perfIntro = "Методика: `hrtime(true)` без Xdebug, прогрев + усреднение; `—` — нет сопоставимого API "
+    . "или пакет/расширение недоступны в окружении бенчмарка.\n\n";
+
+$perfTable = $perfIntro . ComparisonMarkdown::table(
+    array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
+    $perfBody,
+);
+
+$memoryIntro = "Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — "
+    . "аллокации **пакета** под нагрузкой, не RSS/арена всего процесса.\n\n";
+
+$memoryTable = $memoryIntro . ComparisonMarkdown::table(
     array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
     [
-        $perfConstructRow,
         [
-            'AuthCredentials::withPassword (ns/op)',
-            $fmtNs($ns('ours_credentials_password')),
+            'Память пакета под нагрузкой (hold ×' . $holdN . ', emalloc − baseline)',
+            $fmtMem($loadHoldMem['ours']),
+            $fmtMem($loadHoldMem['phpseclib/phpseclib']),
+            $fmtMem($loadHoldMem['spatie/ssh']),
+            $fmtMem($loadHoldMem['herzult/php-ssh']),
+            $fmtMem($loadHoldMem['league/flysystem-sftp-v3']),
+            $fmtMem($loadHoldMem['ext-ssh2']),
+            ComparisonMarkdown::minWinner($loadHoldMem, $order, $labels, $productName),
+        ],
+        [
+            'Сессия+exec под нагрузкой (churn, прирост пакета)',
+            $fmtMem($oursChurn['package_bytes'] ?? null),
             '—',
             '—',
             '—',
@@ -172,8 +258,8 @@ $perfTable = ComparisonMarkdown::table(
             $productName,
         ],
         [
-            'EndpointGuard::prepare localhost (ns/op)',
-            $fmtNs($ns('ours_endpoint_guard_prepare')),
+            'SessionPool acquire/release (churn, прирост пакета)',
+            $fmtMem($oursPool['package_bytes'] ?? null),
             '—',
             '—',
             '—',
@@ -184,20 +270,68 @@ $perfTable = ComparisonMarkdown::table(
     ],
 );
 
-$memoryConstructRow = [
-    'Δ памяти на конструкцию клиента',
-    $fmtMem($constructMem['ours']),
-    $fmtMem($constructMem['phpseclib/phpseclib']),
-    $fmtMem($constructMem['spatie/ssh']),
-    $fmtMem($constructMem['herzult/php-ssh']),
-    $fmtMem($constructMem['league/flysystem-sftp-v3']),
-    $fmtMem($constructMem['ext-ssh2']),
-    ComparisonMarkdown::minWinner($constructMem, $order, $labels, $productName),
+$leakHold = [
+    'ours' => $oursHold['leak_bytes'] ?? null,
+    'phpseclib/phpseclib' => $phpseclibHold['leak_bytes'] ?? null,
+    'spatie/ssh' => $spatieHold['leak_bytes'] ?? null,
+    'herzult/php-ssh' => null,
+    'league/flysystem-sftp-v3' => null,
+    'ext-ssh2' => null,
 ];
 
-$memoryTable = ComparisonMarkdown::table(
-    array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
-    [$memoryConstructRow],
+$leakVerdict = static function (?int $bytes): string {
+    if ($bytes === null) {
+        return '—';
+    }
+
+    if ($bytes === 0) {
+        return 'OK (0 B)';
+    }
+
+    if ($bytes <= 65536) {
+        return 'leak (' . $bytes . ' B)';
+    }
+
+    return 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
+};
+
+$leaksIntro = "После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: остаточный прирост emalloc "
+    . "пакета должен быть **0 B** (любой прирост = leak).\n\n";
+
+$memoryLeaksTable = $leaksIntro . ComparisonMarkdown::table(
+    array_merge(['Сценарий'], $pkgHeader, ['🏆 Победитель']),
+    [
+        [
+            'После hold ×' . $holdN . ' + unset+gc',
+            $leakVerdict($leakHold['ours']),
+            $leakVerdict($leakHold['phpseclib/phpseclib']),
+            $leakVerdict($leakHold['spatie/ssh']),
+            $leakVerdict($leakHold['herzult/php-ssh']),
+            $leakVerdict($leakHold['league/flysystem-sftp-v3']),
+            $leakVerdict($leakHold['ext-ssh2']),
+            ComparisonMarkdown::minWinner($leakHold, $order, $labels, $productName),
+        ],
+        [
+            'После churn session+exec',
+            $leakVerdict($oursChurn['leak_bytes'] ?? null),
+            '—',
+            '—',
+            '—',
+            '—',
+            '—',
+            $productName,
+        ],
+        [
+            'После churn SessionPool',
+            $leakVerdict($oursPool['leak_bytes'] ?? null),
+            '—',
+            '—',
+            '—',
+            '—',
+            '—',
+            $productName,
+        ],
+    ],
 );
 
 /**
@@ -331,6 +465,12 @@ foreach ($targets as $rel) {
         '<!-- MEMORY:START -->',
         '<!-- MEMORY:END -->',
         $memoryTable,
+    );
+    $content = ComparisonMarkdown::replaceBlock(
+        $content,
+        '<!-- MEMORY_LEAKS:START -->',
+        '<!-- MEMORY_LEAKS:END -->',
+        $memoryLeaksTable,
     );
     $content = ComparisonMarkdown::replaceBlock(
         $content,

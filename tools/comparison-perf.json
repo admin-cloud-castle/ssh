@@ -1,0 +1,101 @@
+[
+    {
+        "metric": "Конструкция клиента",
+        "benches": {
+            "ours": "ours_client_construct",
+            "phpseclib/phpseclib": "phpseclib_client_construct",
+            "spatie/ssh": "spatie_client_construct",
+            "herzult/php-ssh": "herzult_client_construct",
+            "league/flysystem-sftp-v3": "flysystem_client_construct",
+            "ext-ssh2": "ext_ssh2_client_construct"
+        }
+    },
+    {
+        "metric": "Настройка password-auth",
+        "benches": {
+            "ours": "ours_password_auth_setup",
+            "phpseclib/phpseclib": "phpseclib_password_auth_setup",
+            "spatie/ssh": "spatie_password_auth_setup",
+            "herzult/php-ssh": "herzult_password_auth_setup",
+            "league/flysystem-sftp-v3": "flysystem_password_auth_setup",
+            "ext-ssh2": "ext_ssh2_password_auth_setup"
+        }
+    },
+    {
+        "metric": "Конфигурация timeout",
+        "benches": {
+            "ours": "ours_timeout_configure",
+            "phpseclib/phpseclib": "phpseclib_timeout_configure",
+            "spatie/ssh": "spatie_timeout_configure",
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": "flysystem_timeout_configure",
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "Конфигурация порта",
+        "benches": {
+            "ours": "ours_port_configure",
+            "phpseclib/phpseclib": "phpseclib_port_configure",
+            "spatie/ssh": "spatie_port_configure",
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": "flysystem_port_configure",
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "Политика host key (strict off / allow)",
+        "benches": {
+            "ours": "ours_hostkey_policy",
+            "phpseclib/phpseclib": null,
+            "spatie/ssh": "spatie_hostkey_policy",
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": null,
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "Подготовка endpoint / connection provider",
+        "benches": {
+            "ours": "ours_endpoint_prepare",
+            "phpseclib/phpseclib": "phpseclib_endpoint_prepare",
+            "spatie/ssh": "spatie_endpoint_prepare",
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": "flysystem_endpoint_prepare",
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "Сборка credentials + options (полный стек клиента)",
+        "benches": {
+            "ours": "ours_full_client_stack",
+            "phpseclib/phpseclib": "phpseclib_full_client_stack",
+            "spatie/ssh": "spatie_full_client_stack",
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": "flysystem_full_client_stack",
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "Session connect+exec (mock peer process)",
+        "benches": {
+            "ours": "ours_session_connect_exec",
+            "phpseclib/phpseclib": null,
+            "spatie/ssh": null,
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": null,
+            "ext-ssh2": null
+        }
+    },
+    {
+        "metric": "SessionPool acquire/release+drain (mock peer process)",
+        "benches": {
+            "ours": "ours_session_pool_cycle",
+            "phpseclib/phpseclib": null,
+            "spatie/ssh": null,
+            "herzult/php-ssh": null,
+            "league/flysystem-sftp-v3": null,
+            "ext-ssh2": null
+        }
+    }
+]
