@@ -305,21 +305,35 @@ final class EndpointGuard
     private function replaceHost(string $endpoint, string $ip): string
     {
         $formattedIp = str_contains($ip, ':') ? '[' . $ip . ']' : $ip;
-        $result = $formattedIp;
 
         if (str_contains($endpoint, '://')) {
-            $result = $this->replaceHostWithScheme($endpoint, $formattedIp);
-        } elseif (str_starts_with($endpoint, '[')) {
-            $result = $this->replaceBracketHost($endpoint, $formattedIp);
-        } else {
-            $colon = strrpos($endpoint, ':');
-
-            if (is_int($colon) && ctype_digit(substr($endpoint, $colon + 1))) {
-                $result = $formattedIp . substr($endpoint, $colon);
-            }
+            return $this->replaceHostWithScheme($endpoint, $formattedIp);
         }
 
-        return $result;
+        if (str_starts_with($endpoint, '[')) {
+            return $this->replaceBracketHost($endpoint, $formattedIp);
+        }
+
+        return $this->replacePlainHost($endpoint, $formattedIp);
+    }
+
+    /**
+     * Подмена host в host:port без схемы и без IPv6-скобок.
+     *
+     * @param string $endpoint    Исходный endpoint
+     * @param string $formattedIp IP уже в форме для URI
+     *
+     * @return string Endpoint с подставленным IP
+     */
+    private function replacePlainHost(string $endpoint, string $formattedIp): string
+    {
+        $colon = strrpos($endpoint, ':');
+
+        if (is_int($colon) && ctype_digit(substr($endpoint, $colon + 1))) {
+            return $formattedIp . substr($endpoint, $colon);
+        }
+
+        return $formattedIp;
     }
 
     /**
