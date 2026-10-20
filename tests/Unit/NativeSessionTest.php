@@ -6,8 +6,8 @@ namespace CloudCastle\Ssh\Tests\Unit;
 
 use CloudCastle\Ssh\Auth\PublicKeySigner;
 use CloudCastle\Ssh\Contract\AuthCredentials;
-use CloudCastle\Ssh\Session\NativeSession;
 use CloudCastle\Ssh\Exception\ConnectionException;
+use CloudCastle\Ssh\Session\NativeSession;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
 use CloudCastle\Ssh\Wire\SshBinary;
 use CloudCastle\Ssh\Wire\SshWire;

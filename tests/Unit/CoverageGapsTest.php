@@ -300,8 +300,12 @@ final class CoverageGapsTest extends TestCase
         $reqSha1 = $signer->buildRequest(str_repeat('c', 32), 'u', $parts);
         self::assertSame(50, ord($reqSha1[0]));
 
-        $this->expectException(ConnectionException::class);
-        $signer->load(AuthCredentials::withPublicKey('u', ''));
+        try {
+            $signer->load(AuthCredentials::withPublicKey('u', ''));
+            self::fail('ожидался ConnectionException для пустого ключа');
+        } catch (ConnectionException $e) {
+            self::assertSame('Пустой private key', $e->getMessage());
+        }
     }
 
     public function testPublicKeyEd25519WhenAvailable(): void

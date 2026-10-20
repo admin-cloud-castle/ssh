@@ -10,7 +10,7 @@ declare(strict_types=1);
 if (extension_loaded('xdebug') && (string) ini_get('xdebug.mode') !== 'off' && (string) ini_get('xdebug.mode') !== '') {
     fwrite(
         STDERR,
-        "предупреждение: xdebug активен — память завышена;"
+        'предупреждение: xdebug активен — память завышена;'
         . " запускайте с -d xdebug.mode=off\n",
     );
 }

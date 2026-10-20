@@ -10,7 +10,7 @@ declare(strict_types=1);
 if (extension_loaded('xdebug') && (string) ini_get('xdebug.mode') !== 'off' && (string) ini_get('xdebug.mode') !== '') {
     fwrite(
         STDERR,
-        "предупреждение: xdebug активен — ns/op зашумлены;"
+        'предупреждение: xdebug активен — ns/op зашумлены;'
         . " запускайте с -d xdebug.mode=off\n",
     );
 }

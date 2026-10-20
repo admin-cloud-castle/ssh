@@ -234,7 +234,7 @@ $perfTable = $perfIntro . ComparisonMarkdown::table(
 
 $memoryIntro = 'Методика: `memory_get_usage(false)` (emalloc) '
     . 'минус baseline пустого цикла — '
-    . "аллокации **пакета** под нагрузкой, "
+    . 'аллокации **пакета** под нагрузкой, '
     . "не RSS/арена всего процесса.\n\n";
 
 $memoryTable = $memoryIntro . ComparisonMarkdown::table(
