@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Контроль утечек памяти пакета под нагрузкой (emalloc − baseline).
  *
+ * Размеры совпадают с tools/benchmark-memory.php: hold×400, churn×25 / pool×12.
+ *
  * @SuppressWarnings("PHPMD.StaticAccess")
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
@@ -31,7 +33,22 @@ use PHPUnit\Framework\TestCase;
 final class MemoryLeakTest extends TestCase
 {
     /**
-     * После hold/release стека фасада остаточный прирост должен быть мал.
+     * Число объектов в hold-сценарии (как в benchmark-memory.php).
+     */
+    private const HOLD_ITERATIONS = 400;
+
+    /**
+     * Число session+exec churn-итераций.
+     */
+    private const CHURN_SESSIONS = 25;
+
+    /**
+     * Число SessionPool churn-итераций.
+     */
+    private const CHURN_POOL = 12;
+
+    /**
+     * После hold/release стека фасада остаточный прирост должен быть 0.
      */
     public function testFacadeStackHoldDoesNotLeak(): void
     {
@@ -44,10 +61,10 @@ final class MemoryLeakTest extends TestCase
                 AuthCredentials::withPassword('deploy', 'secret'),
                 $guard->prepare('127.0.0.1:22', $options),
             ];
-        }, 200, 10);
+        }, self::HOLD_ITERATIONS, 15);
 
         self::assertGreaterThan(0, $result['package_bytes']);
-        self::assertSame(0, $result['leak_bytes']);
+        self::assertSame(0, $result['leak_bytes'], 'hold×' . self::HOLD_ITERATIONS . ' дал leak_bytes=' . $result['leak_bytes']);
     }
 
     /**
@@ -69,13 +86,13 @@ final class MemoryLeakTest extends TestCase
             } finally {
                 MockSshPeer::stop($process);
             }
-        }, 12, 2);
+        }, self::CHURN_SESSIONS, 5);
 
-        self::assertSame(0, $result['leak_bytes']);
+        self::assertSame(0, $result['leak_bytes'], 'session churn leak_bytes=' . $result['leak_bytes']);
     }
 
     /**
-     * Churn SessionPool acquire/release не должен копить утечку.
+     * Churn SessionPool acquire/release/drain не должен копить утечку.
      */
     public function testSessionPoolChurnDoesNotLeak(): void
     {
@@ -83,7 +100,6 @@ final class MemoryLeakTest extends TestCase
         $auth = AuthCredentials::withPassword('u', 'p');
         $options = ConnectionOptions::defaults()->allowPrivateAddresses();
 
-        // Каждый цикл — свой peer: mock обслуживает одно соединение до disconnect/drain.
         $result = PackageMemoryMeter::measureChurn(static function () use ($pool, $auth, $options): void {
             [$port, $process] = MockSshPeer::listen();
             $endpoint = '127.0.0.1:' . $port;
@@ -96,8 +112,8 @@ final class MemoryLeakTest extends TestCase
             } finally {
                 MockSshPeer::stop($process);
             }
-        }, 8, 2);
+        }, self::CHURN_POOL, 4);
 
-        self::assertSame(0, $result['leak_bytes']);
+        self::assertSame(0, $result['leak_bytes'], 'pool churn leak_bytes=' . $result['leak_bytes']);
     }
 }

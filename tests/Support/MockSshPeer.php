@@ -15,11 +15,11 @@ namespace CloudCastle\Ssh\Tests\Support;
 final class MockSshPeer
 {
     /**
-     * Открытые pipe peer-процессов (удерживают дескрипторы живыми).
+     * Pipe peer-процессов по ключу process (fclose только для останавливаемого).
      *
-     * @var list<list<resource>>
+     * @var array<int, list<resource>>
      */
-    private static array $retainedPipes = [];
+    private static array $pipesByProcess = [];
 
     /**
      * Стартует peer и сразу подключается клиентом.
@@ -63,7 +63,7 @@ final class MockSshPeer
             throw new MockSshException('proc_open mock server failed');
         }
 
-        self::$retainedPipes[] = array_values($pipes);
+        self::$pipesByProcess[self::processKey($process)] = array_values($pipes);
 
         return [self::waitPort($portFile), $process];
     }
@@ -95,15 +95,13 @@ final class MockSshPeer
     }
 
     /**
-     * Останавливает peer-процесс.
+     * Останавливает peer-процесс и закрывает его pipe (без orphan fd).
      *
      * @param resource $process
      */
     public static function stop($process): void
     {
-        if (self::$retainedPipes !== []) {
-            self::$retainedPipes = [];
-        }
+        self::closePipesFor($process);
 
         $status = proc_get_status($process);
 
@@ -112,6 +110,42 @@ final class MockSshPeer
         }
 
         proc_close($process);
+    }
+
+    /**
+     * @param resource $process
+     */
+    private static function closePipesFor($process): void
+    {
+        $key = self::processKey($process);
+
+        if (!isset(self::$pipesByProcess[$key])) {
+            return;
+        }
+
+        foreach (self::$pipesByProcess[$key] as $pipe) {
+            if (is_resource($pipe)) {
+                fclose($pipe);
+            }
+        }
+
+        unset(self::$pipesByProcess[$key]);
+    }
+
+    /**
+     * @param resource|object $process
+     */
+    private static function processKey($process): int
+    {
+        if (is_object($process)) {
+            return spl_object_id($process);
+        }
+
+        if (function_exists('get_resource_id') && is_resource($process)) {
+            return get_resource_id($process);
+        }
+
+        return (int) $process;
     }
 
     private static function waitPort(string $portFile): int

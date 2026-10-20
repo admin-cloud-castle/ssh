@@ -55,8 +55,7 @@ final class PackageMemoryMeter
         $packageBytes = max(0, $retainedBytes - $baselineBytes);
 
         unset($held);
-        self::collect();
-        $leakBytes = max(0, memory_get_usage(false) - $start - $baselineBytes);
+        $leakBytes = self::residualLeak($start, $baselineBytes);
 
         return [
             'package_bytes' => $packageBytes,
@@ -116,8 +115,7 @@ final class PackageMemoryMeter
             $after();
         }
 
-        self::collect();
-        $leakBytes = max(0, memory_get_usage(false) - $start - $baselineBytes);
+        $leakBytes = self::residualLeak($start, $baselineBytes);
 
         return [
             'package_bytes' => $packageBytes,
@@ -126,6 +124,31 @@ final class PackageMemoryMeter
             'leak_bytes' => $leakBytes,
             'iterations' => $iterations,
         ];
+    }
+
+    /**
+     * Остаточный прирост emalloc после release: двойной collect (cycles + free-lists).
+     *
+     * @param int $start         memory_get_usage(false) до нагрузки
+     * @param int $baselineBytes Стоимость пустого цикла той же длины
+     *
+     * @return int ≥0; 0 если пакет полностью отпустил память
+     */
+    private static function residualLeak(int $start, int $baselineBytes): int
+    {
+        self::collect();
+        self::collect();
+        $first = max(0, memory_get_usage(false) - $start - $baselineBytes);
+
+        if ($first === 0) {
+            return 0;
+        }
+
+        // Повторный проход: иногда Zend отдаёт chunk только со второго gc_mem_caches.
+        self::collect();
+        self::collect();
+
+        return max(0, memory_get_usage(false) - $start - $baselineBytes);
     }
 
     /**
