@@ -169,7 +169,7 @@ final class MockSshServer // NOSONAR php:S1448 — монолитный test dou
             throw new MockSshException('host key load failed');
         }
 
-        if (!openssl_sign($hash, $signature, $key, OPENSSL_ALGO_SHA256) || $signature === '') {
+        if (!openssl_sign($hash, $signature, $key, OPENSSL_ALGO_SHA256) || !is_string($signature) || $signature === '') {
             throw new MockSshException('host key sign failed');
         }
 

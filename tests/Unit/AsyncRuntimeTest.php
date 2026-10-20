@@ -147,8 +147,10 @@ final class AsyncRuntimeTest extends TestCase
             self::assertSame('read', $payload['op']);
             self::assertSame($client, $payload['stream']);
 
+            $timeout = $payload['timeout'] ?? null;
+            self::assertTrue(is_int($timeout) || is_float($timeout));
             $wait = new ReflectionMethod(FiberAsyncRuntime::class, 'wait');
-            $wait->invoke($runtime, $payload['stream'], $payload['op'], (float) $payload['timeout']);
+            $wait->invoke($runtime, $payload['stream'], $payload['op'], (float) $timeout);
             self::assertSame(1, $selector->callCount);
             self::assertNotNull($selector->lastRead);
             self::assertSame($client, $selector->lastRead[0]);
@@ -361,12 +363,14 @@ final class AsyncRuntimeTest extends TestCase
         $selector = new NativeStreamSelector();
         $server = stream_socket_server('tcp://127.0.0.1:0');
         self::assertNotFalse($server);
-        $read = [$server];
-        $write = null;
-        $except = null;
-        $withDefault = $selector->select($read, $write, $except, 0);
-        $read = [$server];
-        $explicitZero = $selector->select($read, $write, $except, 0, 0);
+        $readDefault = [0 => $server];
+        $writeDefault = null;
+        $exceptDefault = null;
+        $withDefault = $selector->select($readDefault, $writeDefault, $exceptDefault, 0);
+        $readExplicit = [0 => $server];
+        $writeExplicit = null;
+        $exceptExplicit = null;
+        $explicitZero = $selector->select($readExplicit, $writeExplicit, $exceptExplicit, 0, 0);
         self::assertSame($withDefault, $explicitZero);
         fclose($server);
     }

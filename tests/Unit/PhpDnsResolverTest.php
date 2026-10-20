@@ -37,8 +37,15 @@ final class PhpDnsResolverTest extends TestCase
         $dns = new PhpDnsResolver();
         $method = new \ReflectionMethod(PhpDnsResolver::class, 'fromDnsRecords');
         $ips = $method->invoke($dns, 'one.one.one.one');
-        self::assertContainsOnly('string', $ips);
-        self::assertSame($ips, array_values(array_unique($ips)));
+        self::assertIsArray($ips);
+        $stringIps = [];
+
+        foreach ($ips as $ip) {
+            self::assertIsString($ip);
+            $stringIps[] = $ip;
+        }
+
+        self::assertSame($stringIps, array_values(array_unique($stringIps)));
     }
 
     public function testFromGethostbynamelReturnsUniqueList(): void
@@ -46,7 +53,14 @@ final class PhpDnsResolverTest extends TestCase
         $dns = new PhpDnsResolver();
         $method = new \ReflectionMethod(PhpDnsResolver::class, 'fromGethostbynamel');
         $list = $method->invoke($dns, 'one.one.one.one');
-        self::assertContainsOnly('string', $list);
-        self::assertSame($list, array_values(array_unique($list)));
+        self::assertIsArray($list);
+        $stringList = [];
+
+        foreach ($list as $ip) {
+            self::assertIsString($ip);
+            $stringList[] = $ip;
+        }
+
+        self::assertSame($stringList, array_values(array_unique($stringList)));
     }
 }

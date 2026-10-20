@@ -104,7 +104,6 @@ final class NativeSessionTest extends TestCase
             $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
             self::assertTrue($session->isConnected());
             unset($session);
-            self::assertTrue(true);
         } finally {
             MockSshPeer::stop($process);
         }
@@ -143,6 +142,8 @@ final class NativeSessionTest extends TestCase
             $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
             $method = new ReflectionMethod(NativeSession::class, 'buildClientKexInit');
             $payload = $method->invoke($session);
+            self::assertIsString($payload);
+            self::assertNotSame('', $payload);
             self::assertSame(20, ord($payload[0]));
             self::assertSame(16, strlen(substr($payload, 1, 16)));
             self::assertStringContainsString('diffie-hellman-group14-sha256', $payload);

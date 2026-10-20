@@ -148,7 +148,6 @@ final class ProcessPoolTest extends TestCase
     public function testSupportsForkReflectsExtensions(): void
     {
         $method = new ReflectionMethod(ProcessPool::class, 'supportsFork');
-        $method->setAccessible(true);
         $pool = new ProcessPool(2, true);
         $expected = function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
         self::assertSame($expected, $method->invoke($pool));

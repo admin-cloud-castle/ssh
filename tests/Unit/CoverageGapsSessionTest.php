@@ -366,6 +366,7 @@ final class CoverageGapsSessionTest extends TestCase
             $k = SshBinary::mpint("\x01\x02");
             $h = str_repeat('H', 32);
             $key = $derive->invoke($session, $k, $h, 'A', 33);
+            self::assertIsString($key);
             self::assertSame(33, strlen($key));
             $session->disconnect();
         } finally {
@@ -387,6 +388,7 @@ final class CoverageGapsSessionTest extends TestCase
             $fBytes = "\x04";
             $k = SshBinary::mpint("\x05");
             $hash = $method->invoke($session, $clientKex, $serverKex, $hostKey, $eBytes, $fBytes, $k);
+            self::assertIsString($hash);
             self::assertSame(32, strlen($hash));
             $serverId = new \ReflectionProperty(NativeSession::class, 'serverId');
             $sid = $serverId->getValue($session);

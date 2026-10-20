@@ -8,7 +8,8 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $dir = $root . '/var/benchmark';
-$files = glob($dir . '/memory-*.json') ?: [];
+$globbed = glob($dir . '/memory-*.json');
+$files = is_array($globbed) ? $globbed : [];
 $files = array_values(array_filter(
     $files,
     static fn (string $path): bool => !str_ends_with($path, 'memory-avg.json'),
@@ -46,13 +47,29 @@ foreach ($files as $file) {
         }
 
         $acc[$name][] = [
-            'package_bytes' => (int) ($row['package_bytes'] ?? 0),
-            'baseline_bytes' => (int) ($row['baseline_bytes'] ?? 0),
-            'retained_bytes' => (int) ($row['retained_bytes'] ?? 0),
-            'leak_bytes' => (int) ($row['leak_bytes'] ?? 0),
-            'iterations' => (int) ($row['iterations'] ?? 0),
+            'package_bytes' => memoryInt($row['package_bytes'] ?? null),
+            'baseline_bytes' => memoryInt($row['baseline_bytes'] ?? null),
+            'retained_bytes' => memoryInt($row['retained_bytes'] ?? null),
+            'leak_bytes' => memoryInt($row['leak_bytes'] ?? null),
+            'iterations' => memoryInt($row['iterations'] ?? null),
         ];
     }
+}
+
+/**
+ * Приводит JSON-число к int (mixed из json_decode).
+ */
+function memoryInt(mixed $value): int
+{
+    if (is_int($value)) {
+        return $value;
+    }
+
+    if (is_float($value) || is_string($value)) {
+        return (int) $value;
+    }
+
+    return 0;
 }
 
 $scenarios = [];

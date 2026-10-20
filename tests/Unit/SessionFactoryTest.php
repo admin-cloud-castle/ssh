@@ -97,6 +97,9 @@ final class SessionFactoryTest extends TestCase
         $build = new ReflectionMethod(SessionFactory::class, 'buildTarget');
         $zeroPort = new PinnedEndpoint('h', 'h', ['1.2.3.4'], 0);
         $built = $build->invoke($factory, $zeroPort, 'h');
+        self::assertIsArray($built);
+        self::assertArrayHasKey(1, $built);
+        self::assertArrayHasKey(2, $built);
         self::assertSame(22, $built[1]);
         self::assertSame('tcp://1.2.3.4:22', $built[2]);
 

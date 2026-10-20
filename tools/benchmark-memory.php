@@ -68,7 +68,7 @@ $scenarios = [
             } finally {
                 MockSshPeer::stop($process);
             }
-        }, $churnSessions, max(2, (int) ($warm / 3)));
+        }, $churnSessions, max(2, intdiv($warm, 3)));
         $row['available'] = true;
 
         return $row;
@@ -87,7 +87,7 @@ $scenarios = [
             } finally {
                 MockSshPeer::stop($process);
             }
-        }, max(12, (int) ($churnSessions / 2)), max(2, (int) ($warm / 4)));
+        }, max(12, intdiv($churnSessions, 2)), max(2, intdiv($warm, 4)));
         $row['available'] = true;
 
         return $row;

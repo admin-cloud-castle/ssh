@@ -94,11 +94,10 @@ final class SshFacadeTest extends TestCase
         $processFirst = $ssh->processes();
         $processSecond = $ssh->processes();
         self::assertSame($processFirst, $processSecond);
-        self::assertInstanceOf(ProcessPool::class, $processFirst);
 
         $workers = new ReflectionProperty(ProcessPool::class, 'workers');
-        $workers->setAccessible(true);
-        self::assertSame(5, $workers->getValue($processFirst));
+        $workerCount = $workers->getValue($processFirst);
+        self::assertSame(5, $workerCount);
     }
 
     public function testFactorySlotInjectedIsReused(): void

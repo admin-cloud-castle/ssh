@@ -46,6 +46,7 @@ final class PublicKeySignerLoadTest extends TestCase
         self::assertNotFalse($key);
         $pem = '';
         self::assertTrue(openssl_pkey_export($key, $pem, 'wire-secret'));
+        self::assertIsString($pem);
         $signer = new PublicKeySigner();
         $parts = $signer->load(AuthCredentials::withPublicKey('enc', $pem, 'wire-secret'));
         self::assertSame('rsa-sha2-256', $parts['algorithm']);
@@ -88,6 +89,7 @@ final class PublicKeySignerLoadTest extends TestCase
         self::assertNotFalse($key);
         $pem = '';
         self::assertTrue(openssl_pkey_export($key, $pem, 'right-pass'));
+        self::assertIsString($pem);
         $signer = new PublicKeySigner();
 
         try {
@@ -132,7 +134,7 @@ final class PublicKeySignerLoadTest extends TestCase
         try {
             $parts = (new PublicKeySigner())->load(AuthCredentials::withPublicKey('fileuser', $path));
             self::assertSame('rsa-sha2-256', $parts['algorithm']);
-            self::assertStringStartsWith(SshBinary::sshString('ssh-rsa'), $parts['publicBlob']);
+            self::assertTrue(str_starts_with($parts['publicBlob'], SshBinary::sshString('ssh-rsa')));
         } finally {
             $tempRoot = realpath(sys_get_temp_dir());
             $real = realpath($path);
@@ -185,6 +187,7 @@ final class PublicKeySignerLoadTest extends TestCase
 
         $pem = '';
         self::assertTrue(openssl_pkey_export($ecKey, $pem));
+        self::assertIsString($pem);
         $signer = new PublicKeySigner();
 
         try {
@@ -215,7 +218,6 @@ final class PublicKeySignerLoadTest extends TestCase
         }
 
         $method = new ReflectionMethod(PublicKeySigner::class, 'ed25519Parts');
-        $method->setAccessible(true);
         $signer = new PublicKeySigner();
 
         try {
@@ -240,6 +242,7 @@ final class PublicKeySignerLoadTest extends TestCase
         self::assertNotFalse($key);
         $pem = '';
         self::assertTrue(openssl_pkey_export($key, $pem));
+        self::assertIsString($pem);
         self::assertNotSame('', $pem);
 
         return $pem;

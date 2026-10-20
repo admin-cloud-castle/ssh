@@ -73,7 +73,10 @@ final class PublicKeySignerWireTest extends TestCase
         $toSign = $this->canonicalToSign($sessionId, 'alice', $parts['algorithm'], $publicBlob);
         $details = openssl_pkey_get_details($parts['key']);
         self::assertIsArray($details);
-        self::assertSame(1, openssl_verify($toSign, $rawSig, $details['key'], OPENSSL_ALGO_SHA256));
+        self::assertArrayHasKey('key', $details);
+        $verifyKey = $details['key'];
+        self::assertTrue(is_string($verifyKey) || $verifyKey instanceof \OpenSSLAsymmetricKey);
+        self::assertSame(1, openssl_verify($toSign, $rawSig, $verifyKey, OPENSSL_ALGO_SHA256));
     }
 
     /**
@@ -117,7 +120,10 @@ final class PublicKeySignerWireTest extends TestCase
         };
         $details = openssl_pkey_get_details($parts['key']);
         self::assertIsArray($details);
-        self::assertSame(1, openssl_verify($toSign, $rawSig, $details['key'], $opensslAlgo));
+        self::assertArrayHasKey('key', $details);
+        $verifyKey = $details['key'];
+        self::assertTrue(is_string($verifyKey) || $verifyKey instanceof \OpenSSLAsymmetricKey);
+        self::assertSame(1, openssl_verify($toSign, $rawSig, $verifyKey, $opensslAlgo));
     }
 
     /**
@@ -169,7 +175,6 @@ final class PublicKeySignerWireTest extends TestCase
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         self::assertNotFalse($key);
         $method = new ReflectionMethod(PublicKeySigner::class, 'rsaParts');
-        $method->setAccessible(true);
         $signer = new PublicKeySigner();
 
         try {
@@ -193,7 +198,6 @@ final class PublicKeySignerWireTest extends TestCase
     public function testRequireSignatureBytesRejectsEmpty(): void
     {
         $method = new ReflectionMethod(PublicKeySigner::class, 'requireSignatureBytes');
-        $method->setAccessible(true);
         $signer = new PublicKeySigner();
 
         try {
@@ -221,6 +225,7 @@ final class PublicKeySignerWireTest extends TestCase
 
         $pem = '';
         self::assertTrue(openssl_pkey_export($key, $pem));
+        self::assertIsString($pem);
         $signer = new PublicKeySigner();
         $parts = $signer->load(AuthCredentials::withPublicKey('ed', $pem));
         self::assertSame('ssh-ed25519', $parts['algorithm']);
@@ -325,6 +330,7 @@ final class PublicKeySignerWireTest extends TestCase
         self::assertNotFalse($key);
         $pem = '';
         self::assertTrue(openssl_pkey_export($key, $pem));
+        self::assertIsString($pem);
         self::assertNotSame('', $pem);
 
         return $pem;

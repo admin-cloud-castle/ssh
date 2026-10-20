@@ -36,8 +36,9 @@ final class CoverageGapsWireTest extends TestCase
     {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         self::assertNotFalse($pair);
+        self::assertCount(2, $pair);
 
-        return $pair;
+        return [$pair[0], $pair[1]];
     }
 
     public function testPlaintextSendPacketLayoutAndPayload(): void
@@ -134,6 +135,7 @@ final class CoverageGapsWireTest extends TestCase
         $method = new ReflectionMethod(SshWire::class, 'advanceCtr');
         $start = str_repeat("\xFF", 16);
         $next = $method->invoke($wire, $start, 1);
+        self::assertIsString($next);
         self::assertSame(16, strlen($next));
         self::assertSame(str_repeat("\x00", 16), $next);
         fclose($client);

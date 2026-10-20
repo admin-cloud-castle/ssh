@@ -14,9 +14,18 @@ final class RecordingStreamSelector implements StreamSelectorInterface
     /** Число вызовов select. */
     public int $callCount = 0;
 
-    /** Последние корзины read/write, переданные в select. */
+    /**
+     * Последняя корзина read, переданная в select.
+     *
+     * @var array<int, resource>|null
+     */
     public ?array $lastRead = null;
 
+    /**
+     * Последняя корзина write, переданная в select.
+     *
+     * @var array<int, resource>|null
+     */
     public ?array $lastWrite = null;
 
     /** Последний таймаут select в секундах и микросекундах. */

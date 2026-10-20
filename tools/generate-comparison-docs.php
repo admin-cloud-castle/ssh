@@ -154,16 +154,20 @@ $memScenario = static function (string $key) use ($memoryAvg): ?array {
         return null;
     }
 
-    $iterations = (int) ($row['iterations'] ?? 0);
+    $iterationsRaw = $row['iterations'] ?? 0;
+    $iterations = is_int($iterationsRaw) ? $iterationsRaw : (is_numeric($iterationsRaw) ? (int) $iterationsRaw : 0);
     $available = ($row['available'] ?? true) !== false && $iterations > 0;
 
     if (!$available) {
         return null;
     }
 
+    $packageRaw = $row['package_bytes'] ?? 0;
+    $leakRaw = $row['leak_bytes'] ?? 0;
+
     return [
-        'package_bytes' => (int) ($row['package_bytes'] ?? 0),
-        'leak_bytes' => (int) ($row['leak_bytes'] ?? 0),
+        'package_bytes' => is_int($packageRaw) ? $packageRaw : (is_numeric($packageRaw) ? (int) $packageRaw : 0),
+        'leak_bytes' => is_int($leakRaw) ? $leakRaw : (is_numeric($leakRaw) ? (int) $leakRaw : 0),
         'iterations' => $iterations,
         'available' => true,
     ];
@@ -348,11 +352,14 @@ $boolMatrixTable = static function (
     $productName,
     $pkgHeader
 ): string {
+    /** @var list<array<string, mixed>> $typedRows */
+    $typedRows = array_values($rows);
+
     return ComparisonMarkdown::boolMatrixTable(
         $order,
         $labels,
         $pkgHeader,
-        $rows,
+        $typedRows,
         $firstCol,
         $labelKey,
         $productName,
