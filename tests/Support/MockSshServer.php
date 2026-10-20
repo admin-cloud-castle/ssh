@@ -169,11 +169,14 @@ final class MockSshServer // NOSONAR php:S1448 — монолитный test dou
             throw new MockSshException('host key load failed');
         }
 
-        if (!openssl_sign($hash, $signature, $key, OPENSSL_ALGO_SHA256) || !is_string($signature) || $signature === '') {
+        $signed = openssl_sign($hash, $signature, $key, OPENSSL_ALGO_SHA256);
+        $signatureBytes = NonEmptyString::tryFrom($signature);
+
+        if (!$signed || $signatureBytes === null) {
             throw new MockSshException('host key sign failed');
         }
 
-        $sigBlob = SshBinary::sshString('rsa-sha2-256') . SshBinary::sshString($signature);
+        $sigBlob = SshBinary::sshString('rsa-sha2-256') . SshBinary::sshString($signatureBytes);
 
         return chr(31)
             . SshBinary::sshString($this->hostKeyBlob)
@@ -495,12 +498,16 @@ final class MockSshServer // NOSONAR php:S1448 — монолитный test dou
 
         $pem = '';
 
-        if (!openssl_pkey_export($key, $pem) || $pem === '') {
+        if (!openssl_pkey_export($key, $pem)) {
             throw new MockSshException('openssl_pkey_export failed');
         }
 
-        /** @var string $pemString */
-        $pemString = $pem;
+        $pemString = NonEmptyString::tryFrom($pem);
+
+        if ($pemString === null) {
+            throw new MockSshException('openssl_pkey_export failed');
+        }
+
         $this->hostKeyPem = $pemString;
         $details = openssl_pkey_get_details($key);
 

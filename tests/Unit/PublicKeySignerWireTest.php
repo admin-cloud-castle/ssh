@@ -7,6 +7,7 @@ namespace CloudCastle\Ssh\Tests\Unit;
 use CloudCastle\Ssh\Auth\PublicKeySigner;
 use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Exception\ConnectionException;
+use CloudCastle\Ssh\Tests\Support\PemExport;
 use CloudCastle\Ssh\Wire\SshBinary;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -66,9 +67,12 @@ final class PublicKeySignerWireTest extends TestCase
 
         $rsaDetails = openssl_pkey_get_details($parts['key']);
         self::assertIsArray($rsaDetails);
-        self::assertIsArray($rsaDetails['rsa'] ?? null);
-        self::assertSame($rsaDetails['rsa']['e'], $exponent);
-        self::assertSame($rsaDetails['rsa']['n'], $modulus);
+        $rsa = $rsaDetails['rsa'] ?? null;
+        self::assertIsArray($rsa);
+        self::assertArrayHasKey('e', $rsa);
+        self::assertArrayHasKey('n', $rsa);
+        self::assertSame($rsa['e'], $exponent);
+        self::assertSame($rsa['n'], $modulus);
 
         $toSign = $this->canonicalToSign($sessionId, 'alice', $parts['algorithm'], $publicBlob);
         $details = openssl_pkey_get_details($parts['key']);
@@ -223,9 +227,7 @@ final class PublicKeySignerWireTest extends TestCase
             self::markTestSkipped('openssl не создал Ed25519 ключ');
         }
 
-        $pem = '';
-        self::assertTrue(openssl_pkey_export($key, $pem));
-        self::assertIsString($pem);
+        $pem = PemExport::privateKey($key);
         $signer = new PublicKeySigner();
         $parts = $signer->load(AuthCredentials::withPublicKey('ed', $pem));
         self::assertSame('ssh-ed25519', $parts['algorithm']);
@@ -328,11 +330,7 @@ final class PublicKeySignerWireTest extends TestCase
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         self::assertNotFalse($key);
-        $pem = '';
-        self::assertTrue(openssl_pkey_export($key, $pem));
-        self::assertIsString($pem);
-        self::assertNotSame('', $pem);
 
-        return $pem;
+        return PemExport::privateKey($key);
     }
 }

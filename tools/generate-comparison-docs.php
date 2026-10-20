@@ -144,30 +144,38 @@ if (!is_array($memoryAvg) || !isset($memoryAvg['scenarios']) || !is_array($memor
     exit(1);
 }
 
+$memInt = static function (mixed $value): int {
+    if (is_int($value)) {
+        return $value;
+    }
+
+    if (is_float($value) || is_string($value)) {
+        return (int) $value;
+    }
+
+    return 0;
+};
+
 /**
  * @return array{package_bytes: int, leak_bytes: int, iterations: int, available: bool}|null
  */
-$memScenario = static function (string $key) use ($memoryAvg): ?array {
+$memScenario = static function (string $key) use ($memoryAvg, $memInt): ?array {
     $row = $memoryAvg['scenarios'][$key] ?? null;
 
     if (!is_array($row)) {
         return null;
     }
 
-    $iterationsRaw = $row['iterations'] ?? 0;
-    $iterations = is_int($iterationsRaw) ? $iterationsRaw : (is_numeric($iterationsRaw) ? (int) $iterationsRaw : 0);
+    $iterations = $memInt($row['iterations'] ?? null);
     $available = ($row['available'] ?? true) !== false && $iterations > 0;
 
     if (!$available) {
         return null;
     }
 
-    $packageRaw = $row['package_bytes'] ?? 0;
-    $leakRaw = $row['leak_bytes'] ?? 0;
-
     return [
-        'package_bytes' => is_int($packageRaw) ? $packageRaw : (is_numeric($packageRaw) ? (int) $packageRaw : 0),
-        'leak_bytes' => is_int($leakRaw) ? $leakRaw : (is_numeric($leakRaw) ? (int) $leakRaw : 0),
+        'package_bytes' => $memInt($row['package_bytes'] ?? null),
+        'leak_bytes' => $memInt($row['leak_bytes'] ?? null),
         'iterations' => $iterations,
         'available' => true,
     ];
@@ -286,21 +294,12 @@ $leakHold = [
     'ext-ssh2' => null,
 ];
 
-$leakVerdict = static function (?int $bytes): string {
-    $formatted = '—';
-
-    if ($bytes === null) {
-        $formatted = '—';
-    } elseif ($bytes === 0) {
-        $formatted = 'OK (0 B)';
-    } elseif ($bytes <= 65536) {
-        $formatted = 'leak (' . $bytes . ' B)';
-    } else {
-        $formatted = 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
-    }
-
-    return $formatted;
-};
+$leakVerdict = (static fn (?int $bytes): string => match (true) {
+    $bytes === null => '—',
+    $bytes === 0 => 'OK (0 B)',
+    $bytes <= 65536 => 'leak (' . $bytes . ' B)',
+    default => 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')',
+});
 
 $leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: '
     . 'остаточный прирост emalloc '

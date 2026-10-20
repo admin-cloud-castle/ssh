@@ -7,6 +7,7 @@ namespace CloudCastle\Ssh\Tests\Unit;
 use CloudCastle\Ssh\Auth\PublicKeySigner;
 use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Exception\ConnectionException;
+use CloudCastle\Ssh\Tests\Support\TempPath;
 use CloudCastle\Ssh\Wire\SshBinary;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +37,7 @@ final class PublicKeySignerTest extends TestCase
         self::assertNotFalse($path);
         self::assertTrue(openssl_pkey_export_to_file($key, $path));
         $pem = file_get_contents($path);
-        self::unlinkTempFile($path);
+        $this->unlinkTempFile($path);
         self::assertNotFalse($pem);
         self::assertNotSame('', $pem);
 
@@ -65,16 +66,8 @@ final class PublicKeySignerTest extends TestCase
     /**
      * Удаляет файл только внутри sys_get_temp_dir().
      */
-    private static function unlinkTempFile(string $path): void
+    private function unlinkTempFile(string $path): void
     {
-        $tempRoot = realpath(sys_get_temp_dir());
-        $real = realpath($path);
-
-        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
-            return;
-        }
-
-        // Путь уже проверен realpath + префикс temp dir.
-        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        TempPath::unlinkIfTemp($path);
     }
 }

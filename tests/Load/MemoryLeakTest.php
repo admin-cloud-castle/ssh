@@ -55,16 +55,18 @@ final class MemoryLeakTest extends TestCase
         $guard = new EndpointGuard();
         $options = ConnectionOptions::defaults()->allowPrivateAddresses();
 
-        $result = PackageMemoryMeter::measureHold(static function () use ($guard, $options) {
-            return [
-                new Ssh(),
-                AuthCredentials::withPassword('deploy', 'secret'),
-                $guard->prepare('127.0.0.1:22', $options),
-            ];
-        }, self::HOLD_ITERATIONS, 15);
+        $result = PackageMemoryMeter::measureHold(static fn (): array => [
+            new Ssh(),
+            AuthCredentials::withPassword('deploy', 'secret'),
+            $guard->prepare('127.0.0.1:22', $options),
+        ], self::HOLD_ITERATIONS, 15);
 
         self::assertGreaterThan(0, $result['package_bytes']);
-        self::assertSame(0, $result['leak_bytes'], 'hold×' . self::HOLD_ITERATIONS . ' дал leak_bytes=' . $result['leak_bytes']);
+        self::assertSame(
+            0,
+            $result['leak_bytes'],
+            'hold×' . self::HOLD_ITERATIONS . ' дал leak_bytes=' . $result['leak_bytes'],
+        );
     }
 
     /**

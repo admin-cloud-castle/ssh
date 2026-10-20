@@ -59,6 +59,7 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
             }
 
             // 0.0 + N приводит int|float к float без (float)-cast (иначе CastFloat эквивалентен).
+            /** @psalm-suppress InvalidOperand */
             $this->wait($value['stream'], $value['op'], 0.0 + $value['timeout']);
             $value = $fiber->resume();
         }
@@ -143,7 +144,7 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
      */
     private function suspend(string $op, mixed $stream, float $timeoutSeconds): void
     {
-        if (Fiber::getCurrent() === null) {
+        if (!Fiber::getCurrent() instanceof \Fiber) {
             $this->wait($stream, $op, $timeoutSeconds);
 
             return;
@@ -249,6 +250,7 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
         }
 
         $seconds = (int) $timeoutSeconds;
+        /** @psalm-suppress InvalidOperand */
         $fraction = $timeoutSeconds - $seconds;
         $microseconds = (int) round($fraction * 1_000_000.0);
 

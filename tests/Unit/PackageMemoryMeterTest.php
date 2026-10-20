@@ -21,9 +21,7 @@ final class PackageMemoryMeterTest extends TestCase
      */
     public function testMeasureHoldReportsPackageBytesAndLowLeak(): void
     {
-        $result = PackageMemoryMeter::measureHold(static function (): string {
-            return str_repeat('x', 1024);
-        }, 50, 5);
+        $result = PackageMemoryMeter::measureHold(static fn (): string => str_repeat('x', 1024), 50, 5);
 
         self::assertSame(50, $result['iterations']);
         self::assertGreaterThan(10_000, $result['package_bytes']);

@@ -548,17 +548,14 @@ $results = [
 ];
 
 foreach ($benches as $name => $runner) {
+    /** @var array{available: bool, ns_per_op: float|int, total_ns: int, memory_delta: int} $row */
     $row = $runner();
     $results['benches'][$name] = $row;
-    $available = is_array($row) && ($row['available'] ?? true) !== false;
-    $nsPerOp = is_array($row) && isset($row['ns_per_op']) && is_numeric($row['ns_per_op'])
-        ? (float) $row['ns_per_op']
-        : 0.0;
     fwrite(STDOUT, sprintf(
         "%s: %s %.0f ns/op\n",
         $name,
-        $available ? 'ok' : 'n/a',
-        $nsPerOp,
+        ($row['available'] ?? true) ? 'ok' : 'n/a',
+        (float) $row['ns_per_op'],
     ));
 }
 

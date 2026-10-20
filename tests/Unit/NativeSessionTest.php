@@ -9,6 +9,7 @@ use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Session\NativeSession;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
+use CloudCastle\Ssh\Tests\Support\TempPath;
 use CloudCastle\Ssh\Wire\SshBinary;
 use CloudCastle\Ssh\Wire\SshWire;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -129,7 +130,7 @@ final class NativeSessionTest extends TestCase
             self::assertSame('', SshBinary::readString($body, $offset));
         } finally {
             putenv('CC_SSH_DISCONNECT_FILE');
-            self::unlinkTempFile($record);
+            $this->unlinkTempFile($record);
             MockSshPeer::stop($process);
         }
     }
@@ -203,16 +204,8 @@ final class NativeSessionTest extends TestCase
     /**
      * Удаляет файл только внутри sys_get_temp_dir().
      */
-    private static function unlinkTempFile(string $path): void
+    private function unlinkTempFile(string $path): void
     {
-        $tempRoot = realpath(sys_get_temp_dir());
-        $real = realpath($path);
-
-        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
-            return;
-        }
-
-        // Путь уже проверен realpath + префикс temp dir.
-        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        TempPath::unlinkIfTemp($path);
     }
 }

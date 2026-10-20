@@ -250,11 +250,18 @@ final class ComparisonLoader
                 continue;
             }
 
-            $value = $input[$key] ?? null;
-            $out[$key] = is_string($value) ? $value : null;
+            $out[$key] = self::nullableString($input[$key] ?? null);
         }
 
         return $out;
+    }
+
+    /**
+     * @param mixed $value Сырое значение из JSON
+     */
+    private static function nullableString(mixed $value): ?string
+    {
+        return is_string($value) ? $value : null;
     }
 
     /**

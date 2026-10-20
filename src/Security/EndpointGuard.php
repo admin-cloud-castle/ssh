@@ -131,7 +131,11 @@ final class EndpointGuard
     {
         $end = strpos($endpoint, ']');
 
-        if ($end === false || !isset($endpoint[$end + 1]) || $endpoint[$end + 1] !== ':') {
+        if ($end === false) {
+            return 22;
+        }
+
+        if (!isset($endpoint[$end + 1]) || $endpoint[$end + 1] !== ':') {
             return 22;
         }
 

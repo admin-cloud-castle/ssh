@@ -124,28 +124,26 @@ final class MockSshPeer
         }
 
         foreach (self::$pipesByProcess[$key] as $pipe) {
-            if (is_resource($pipe)) {
-                fclose($pipe);
-            }
+            fclose($pipe);
         }
 
         unset(self::$pipesByProcess[$key]);
     }
 
     /**
-     * @param resource|object $process
+     * @param mixed $process proc_open resource или объект процесса
      */
-    private static function processKey($process): int
+    private static function processKey(mixed $process): int
     {
         if (is_object($process)) {
             return spl_object_id($process);
         }
 
-        if (function_exists('get_resource_id') && is_resource($process)) {
+        if (is_resource($process) && function_exists('get_resource_id')) {
             return get_resource_id($process);
         }
 
-        return (int) $process;
+        return 0;
     }
 
     private static function waitPort(string $portFile): int
@@ -174,14 +172,6 @@ final class MockSshPeer
      */
     private static function unlinkTempFile(string $path): void
     {
-        $tempRoot = realpath(sys_get_temp_dir());
-        $real = realpath($path);
-
-        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
-            return;
-        }
-
-        // Путь уже проверен realpath + префикс temp dir.
-        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        TempPath::unlinkIfTemp($path);
     }
 }

@@ -67,6 +67,37 @@ final class ProcessPoolTest extends TestCase
         self::assertSame([['key' => 'a'], ['key' => 'b']], $out);
     }
 
+    public function testMapForkReturnsZeroAndFalse(): void
+    {
+        if (!function_exists('pcntl_fork')) {
+            self::markTestSkipped('pcntl_fork недоступен');
+        }
+
+        $pool = new ProcessPool(1, false);
+        $out = iterator_to_array(
+            $pool->map([0, 1], static fn (int $value): int|false => $value === 0 ? 0 : false),
+            false,
+        );
+        sort($out);
+        self::assertSame([0, false], $out);
+    }
+
+    public function testUnserializeRejectsObjectClassesFromWorkerPayload(): void
+    {
+        $pool = new ProcessPool(1, true);
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        self::assertNotFalse($pair);
+        [$left, $right] = $pair;
+        $objectPayload = serialize(new \stdClass());
+        fwrite($left, pack('N', strlen($objectPayload)) . $objectPayload);
+        fclose($left);
+        $body = $pool->readWorkerPayload($right);
+        fclose($right);
+        // nosemgrep: php.lang.security.unserialize-use.unserialize-use
+        $value = unserialize($body, ['allowed_classes' => false]);
+        self::assertInstanceOf(\__PHP_Incomplete_Class::class, $value);
+    }
+
     public function testWorkersZeroStillCompletesForkedMap(): void
     {
         if (!function_exists('pcntl_fork')) {

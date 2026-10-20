@@ -24,6 +24,21 @@ if ($files === []) {
 $acc = [];
 $phpVersions = [];
 
+$toInt = static function (mixed $value): int {
+    if (is_int($value)) {
+        return $value;
+    }
+
+    if (is_float($value) || is_string($value)) {
+        return (int) $value;
+    }
+
+    return 0;
+};
+
+/** @return array<array-key, mixed>|null */
+$toArray = (static fn (mixed $value): ?array => is_array($value) ? $value : null);
+
 foreach ($files as $file) {
     $raw = file_get_contents($file);
 
@@ -41,35 +56,27 @@ foreach ($files as $file) {
         $phpVersions[] = $data['php'];
     }
 
-    foreach ($data['scenarios'] as $name => $row) {
-        if (!is_string($name) || !is_array($row)) {
+    $scenariosInFile = $data['scenarios'];
+
+    foreach (array_keys($scenariosInFile) as $name) {
+        if (!is_string($name)) {
+            continue;
+        }
+
+        $row = $toArray($scenariosInFile[$name] ?? null);
+
+        if ($row === null) {
             continue;
         }
 
         $acc[$name][] = [
-            'package_bytes' => memoryInt($row['package_bytes'] ?? null),
-            'baseline_bytes' => memoryInt($row['baseline_bytes'] ?? null),
-            'retained_bytes' => memoryInt($row['retained_bytes'] ?? null),
-            'leak_bytes' => memoryInt($row['leak_bytes'] ?? null),
-            'iterations' => memoryInt($row['iterations'] ?? null),
+            'package_bytes' => $toInt($row['package_bytes'] ?? null),
+            'baseline_bytes' => $toInt($row['baseline_bytes'] ?? null),
+            'retained_bytes' => $toInt($row['retained_bytes'] ?? null),
+            'leak_bytes' => $toInt($row['leak_bytes'] ?? null),
+            'iterations' => $toInt($row['iterations'] ?? null),
         ];
     }
-}
-
-/**
- * Приводит JSON-число к int (mixed из json_decode).
- */
-function memoryInt(mixed $value): int
-{
-    if (is_int($value)) {
-        return $value;
-    }
-
-    if (is_float($value) || is_string($value)) {
-        return (int) $value;
-    }
-
-    return 0;
 }
 
 $scenarios = [];
@@ -97,6 +104,7 @@ foreach ($acc as $name => $samples) {
         'leak_bytes' => (int) round($sumLeak / max(1, $n)),
         'iterations' => (int) round($sumIter / max(1, $n)),
         'samples' => $n,
+        'available' => true,
     ];
 }
 
@@ -108,12 +116,10 @@ $out = [
 ];
 
 $path = $dir . '/memory-avg.json';
-$encoded = json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-if ($encoded === false) {
+$json = json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+if (!is_string($json)) {
     fwrite(STDERR, "json_encode failed\n");
     exit(1);
 }
-
-file_put_contents($path, $encoded . "\n");
+file_put_contents($path, $json . "\n");
 fwrite(STDOUT, "wrote {$path}\n");

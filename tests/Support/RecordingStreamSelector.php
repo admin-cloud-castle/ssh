@@ -11,7 +11,7 @@ use CloudCastle\Ssh\Async\StreamSelectorInterface;
  */
 final class RecordingStreamSelector implements StreamSelectorInterface
 {
-    /** Число вызовов select. */
+    /** Число вызовов select. @var int */
     public int $callCount = 0;
 
     /**
@@ -36,9 +36,8 @@ final class RecordingStreamSelector implements StreamSelectorInterface
     /**
      * @param int|false $returnValue Результат, который вернёт select
      */
-    public function __construct(
-        private readonly int|false $returnValue = 1,
-    ) {
+    public function __construct(private readonly int|false $returnValue = 1)
+    {
     }
 
     /**

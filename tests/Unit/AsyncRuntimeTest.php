@@ -142,7 +142,8 @@ final class AsyncRuntimeTest extends TestCase
                 return 'done';
             });
             $payload = $fiber->start();
-            self::assertSame(0, $selector->callCount);
+            $callsBeforeWait = $selector->callCount;
+            self::assertSame(0, $callsBeforeWait);
             self::assertIsArray($payload);
             self::assertSame('read', $payload['op']);
             self::assertSame($client, $payload['stream']);
@@ -415,9 +416,7 @@ final class AsyncRuntimeTest extends TestCase
 
         while ($this->serversToClose !== []) {
             $server = array_pop($this->serversToClose);
-            if (is_resource($server)) {
-                fclose($server);
-            }
+            fclose($server);
         }
     }
 }

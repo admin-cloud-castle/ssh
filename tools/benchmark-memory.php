@@ -45,13 +45,11 @@ $emptyResult = static fn (): array => [
 $scenarios = [
     'ours_hold_facade_stack' => static function () use ($holdIterations, $warm, $options): array {
         $guard = new EndpointGuard();
-        $row = PackageMemoryMeter::measureHold(static function () use ($guard, $options) {
-            return [
-                new Ssh(),
-                AuthCredentials::withPassword('deploy', 'secret'),
-                $guard->prepare('127.0.0.1:22', $options),
-            ];
-        }, $holdIterations, $warm);
+        $row = PackageMemoryMeter::measureHold(static fn (): array => [
+            new Ssh(),
+            AuthCredentials::withPassword('deploy', 'secret'),
+            $guard->prepare('127.0.0.1:22', $options),
+        ], $holdIterations, $warm);
         $row['available'] = true;
 
         return $row;
@@ -97,9 +95,11 @@ $scenarios = [
             return $emptyResult();
         }
 
-        $row = PackageMemoryMeter::measureHold(static function () {
-            return new \phpseclib3\Net\SSH2('127.0.0.1');
-        }, $holdIterations, $warm);
+        $row = PackageMemoryMeter::measureHold(
+            static fn (): \phpseclib3\Net\SSH2 => new \phpseclib3\Net\SSH2('127.0.0.1'),
+            $holdIterations,
+            $warm,
+        );
         $row['available'] = true;
 
         return $row;
@@ -109,9 +109,11 @@ $scenarios = [
             return $emptyResult();
         }
 
-        $row = PackageMemoryMeter::measureHold(static function () {
-            return \Spatie\Ssh\Ssh::create('user', '127.0.0.1');
-        }, $holdIterations, $warm);
+        $row = PackageMemoryMeter::measureHold(
+            static fn (): \Spatie\Ssh\Ssh => \Spatie\Ssh\Ssh::create('user', '127.0.0.1'),
+            $holdIterations,
+            $warm,
+        );
         $row['available'] = true;
 
         return $row;

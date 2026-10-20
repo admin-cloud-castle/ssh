@@ -202,6 +202,7 @@ final class ProcessPool
             unset($running[$done], $sockets[$done]);
 
             if ($body !== '') {
+                /** @var mixed $decoded */
                 $decoded = json_decode($body, true);
 
                 if (json_last_error() === JSON_ERROR_NONE) {

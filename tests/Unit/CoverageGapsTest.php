@@ -25,6 +25,7 @@ use CloudCastle\Ssh\Security\PhpDnsResolver;
 use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Session\NativeSession;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
+use CloudCastle\Ssh\Tests\Support\TempPath;
 use CloudCastle\Ssh\Wire\SshBinary;
 use CloudCastle\Ssh\Wire\SshWire;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -325,7 +326,7 @@ final class CoverageGapsTest extends TestCase
         self::assertTrue(openssl_pkey_export_to_file($key, $path));
         $signer = new PublicKeySigner();
         $parts = $signer->load(AuthCredentials::withPublicKey('ed', $path));
-        self::unlinkTempFile($path);
+        $this->unlinkTempFile($path);
         self::assertSame('ssh-ed25519', $parts['algorithm']);
         $req = $signer->buildRequest(str_repeat('d', 32), 'ed', $parts);
         self::assertSame(50, ord($req[0]));
@@ -348,23 +349,15 @@ final class CoverageGapsTest extends TestCase
         try {
             $signer->load(AuthCredentials::withPublicKey('u', $path));
         } finally {
-            self::unlinkTempFile($path);
+            $this->unlinkTempFile($path);
         }
     }
 
     /**
      * Удаляет файл только внутри sys_get_temp_dir().
      */
-    private static function unlinkTempFile(string $path): void
+    private function unlinkTempFile(string $path): void
     {
-        $tempRoot = realpath(sys_get_temp_dir());
-        $real = realpath($path);
-
-        if ($tempRoot === false || $real === false || !str_starts_with($real, $tempRoot)) {
-            return;
-        }
-
-        // Путь уже проверен realpath + префикс temp dir.
-        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        TempPath::unlinkIfTemp($path);
     }
 }

@@ -48,6 +48,7 @@ final class PackageMemoryMeter
         $held = [];
 
         for ($i = 0; $i < $iterations; ++$i) {
+            /** @psalm-suppress MixedAssignment */
             $held[] = $workload();
         }
 
@@ -177,6 +178,7 @@ final class PackageMemoryMeter
         $held = [];
 
         for ($i = 0; $i < $iterations; ++$i) {
+            /** @psalm-suppress MixedAssignment */
             $held[] = $workload();
         }
 
