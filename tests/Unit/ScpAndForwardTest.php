@@ -11,6 +11,18 @@ use CloudCastle\Ssh\Scp\ScpClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ */
 #[CoversClass(ScpClient::class)]
 #[CoversClass(LocalPortForward::class)]
 final class ScpAndForwardTest extends TestCase
@@ -22,12 +34,13 @@ final class ScpAndForwardTest extends TestCase
             if (str_contains($cmd, 'scp -f')) {
                 return 'filedata';
             }
+
             return '';
         });
         $scp = new ScpClient($session);
         self::assertSame('filedata', $scp->get('/r'));
         $scp->put('/r', 'abc');
-        $this->addToAssertionCount(1);
+        self::assertSame('filedata', $scp->get('/r'));
     }
 
     public function testScpEmptyThrows(): void

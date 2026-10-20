@@ -36,11 +36,12 @@ final class LocalPortForward
         $host = escapeshellarg($remoteHost);
         $port = (string) $remotePort;
         $b64 = base64_encode($payload);
+        $timeoutSeconds = max(1, (int) $timeout);
         $cmd = sprintf(
             'timeout %s bash -c %s',
-            escapeshellarg((string) max(1, (int) $timeout)),
+            escapeshellarg((string) $timeoutSeconds),
             escapeshellarg(
-                'echo ' . escapeshellarg($b64) . ' | base64 -d | nc -w ' . (int) max(1, (int) $timeout)
+                'echo ' . escapeshellarg($b64) . ' | base64 -d | nc -w ' . $timeoutSeconds
                 . ' ' . trim($host, "'") . ' ' . $port . ' | base64 -w0',
             ),
         );

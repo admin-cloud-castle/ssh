@@ -11,7 +11,7 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Contract\SessionPoolInterface;
 
 /**
- * Пул idle SSH-сессий с ключом endpoint|sftp.
+ * Пул idle SSH-сессий с ключом по endpoint.
  */
 final class SessionPool implements SessionPoolInterface
 {
@@ -41,9 +41,8 @@ final class SessionPool implements SessionPoolInterface
         string $endpoint,
         AuthCredentials $auth,
         ?ConnectionOptions $options = null,
-        bool $sftp = false,
     ): SessionInterface {
-        $key = $this->key($endpoint, $sftp);
+        $key = $this->key($endpoint);
 
         while (isset($this->idle[$key]) && $this->idle[$key] !== []) {
             $session = array_pop($this->idle[$key]);
@@ -55,7 +54,7 @@ final class SessionPool implements SessionPoolInterface
             $session->disconnect();
         }
 
-        return $this->factory->connect($endpoint, $auth, $options, $sftp);
+        return $this->factory->connect($endpoint, $auth, $options);
     }
 
     /**
@@ -68,7 +67,7 @@ final class SessionPool implements SessionPoolInterface
             return;
         }
 
-        $key = $this->key($session->remoteEndpoint(), false);
+        $key = $this->key($session->remoteEndpoint());
         $bucket = $this->idle[$key] ?? [];
 
         if (count($bucket) >= $this->maxPerKey) {
@@ -111,8 +110,8 @@ final class SessionPool implements SessionPoolInterface
         return $total;
     }
 
-    private function key(string $endpoint, bool $sftp): string
+    private function key(string $endpoint): string
     {
-        return strtolower($endpoint) . '|' . ($sftp ? 'sftp' : 'ssh');
+        return strtolower($endpoint);
     }
 }

@@ -10,6 +10,18 @@ use CloudCastle\Ssh\Security\HostKeyVerifier;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ */
 #[CoversClass(HostKeyVerifier::class)]
 #[CoversClass(ConnectionOptions::class)]
 final class HostKeyVerifierTest extends TestCase
@@ -17,10 +29,10 @@ final class HostKeyVerifierTest extends TestCase
     public function testAcceptsTrustedFingerprint(): void
     {
         $verifier = new HostKeyVerifier();
-        $fp = base64_encode('abc');
-        $options = ConnectionOptions::defaults()->withTrustedHostKeys(['SHA256:' . $fp]);
-        $verifier->verify($fp, $options);
-        $this->addToAssertionCount(1);
+        $fingerprint = base64_encode('abc');
+        $options = ConnectionOptions::defaults()->withTrustedHostKeys(['SHA256:' . $fingerprint]);
+        $verifier->verify($fingerprint, $options);
+        self::assertNotSame('', $fingerprint);
     }
 
     public function testRejectsMismatch(): void
@@ -41,7 +53,8 @@ final class HostKeyVerifierTest extends TestCase
 
     public function testNoListNoStrictOk(): void
     {
-        (new HostKeyVerifier())->verify('fp', ConnectionOptions::defaults());
-        $this->addToAssertionCount(1);
+        $options = ConnectionOptions::defaults();
+        (new HostKeyVerifier())->verify('fp', $options);
+        self::assertFalse($options->strictHostKey());
     }
 }

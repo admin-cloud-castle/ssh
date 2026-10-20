@@ -12,6 +12,18 @@ use CloudCastle\Ssh\Security\PinnedEndpoint;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ */
 #[CoversClass(EndpointGuard::class)]
 #[CoversClass(PinnedEndpoint::class)]
 #[CoversClass(ConnectionOptions::class)]
@@ -25,7 +37,8 @@ final class EndpointGuardTest extends TestCase
 
     public function testAllowsPrivateWhenDisabled(): void
     {
-        $pinned = (new EndpointGuard())->prepare('127.0.0.1:2222', ConnectionOptions::defaults()->allowPrivateAddresses());
+        $options = ConnectionOptions::defaults()->allowPrivateAddresses();
+        $pinned = (new EndpointGuard())->prepare('127.0.0.1:2222', $options);
         self::assertSame(2222, $pinned->port());
         self::assertSame('127.0.0.1', $pinned->host());
         self::assertSame([], $pinned->resolvedIps());
@@ -40,8 +53,14 @@ final class EndpointGuardTest extends TestCase
 
     public function testBlocksDnsToPrivate(): void
     {
-        $dns = new class implements DnsResolverInterface {
-            public function resolve(string $host): array { return ['10.0.0.1']; }
+        $dns = new class () implements DnsResolverInterface {
+            #[\Override]
+            public function resolve(string $host): array
+            {
+                unset($host);
+
+                return ['10.0.0.1'];
+            }
         };
         $this->expectException(SecurityException::class);
         (new EndpointGuard($dns))->prepare('evil.example', ConnectionOptions::defaults());
@@ -49,8 +68,14 @@ final class EndpointGuardTest extends TestCase
 
     public function testPinsPublicDns(): void
     {
-        $dns = new class implements DnsResolverInterface {
-            public function resolve(string $host): array { return ['8.8.8.8']; }
+        $dns = new class () implements DnsResolverInterface {
+            #[\Override]
+            public function resolve(string $host): array
+            {
+                unset($host);
+
+                return ['8.8.8.8'];
+            }
         };
         $pinned = (new EndpointGuard($dns))->prepare('dns.google:22', ConnectionOptions::defaults());
         self::assertSame(['8.8.8.8'], $pinned->resolvedIps());

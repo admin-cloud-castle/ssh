@@ -22,30 +22,30 @@ interface SessionInterface
     /**
      * Выполняет remote command через channel «exec».
      *
-     * @throws \CloudCastle\Ssh\Exception\ConnectionException
+     * @throws \RuntimeException При ошибке канала или транспорта
      */
     public function exec(string $command): string;
 
     /**
      * Пишет в session-канал.
      *
-     * @throws \CloudCastle\Ssh\Exception\ConnectionException
+     * @throws \RuntimeException При закрытой сессии или ошибке записи
      */
     public function write(string $payload): void;
 
     /**
      * Читает из буфера session-канала.
      *
-     * @throws \CloudCastle\Ssh\Exception\ConnectionException
+     * @throws \RuntimeException При закрытой сессии
      */
     public function read(int $maxLength = 8192): string;
 
     /**
-     * Открывает SFTP subsystem.
+     * Открывает session-канал и запрашивает SSH subsystem (например «sftp» из отдельного пакета).
      *
-     * @throws \CloudCastle\Ssh\Exception\ConnectionException
+     * @throws \RuntimeException При ошибке канала
      */
-    public function openSftp(): SftpClientInterface;
+    public function openSubsystem(string $name): void;
 
     /**
      * SHA256 fingerprint host key (base64 без префикса).

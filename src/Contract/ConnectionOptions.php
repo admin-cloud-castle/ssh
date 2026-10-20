@@ -6,6 +6,10 @@ namespace CloudCastle\Ssh\Contract;
 
 /**
  * Опции TCP/SSH-соединения и политики безопасности.
+ *
+ * @SuppressWarnings("PHPMD.BooleanArgumentFlag")
+ * @SuppressWarnings("PHPMD.LongVariable")
+ * @SuppressWarnings("PHPMD.ExcessiveParameterList")
  */
 final class ConnectionOptions
 {

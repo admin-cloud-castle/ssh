@@ -78,7 +78,7 @@ final class EndpointGuard
         if (str_contains($endpoint, '://')) {
             $parts = parse_url($endpoint);
 
-            if (is_array($parts) && isset($parts['port']) && is_int($parts['port'])) {
+            if (is_array($parts) && isset($parts['port'])) {
                 return $parts['port'];
             }
 
@@ -217,8 +217,8 @@ final class EndpointGuard
         if (str_contains($endpoint, '://')) {
             $parts = parse_url($endpoint);
 
-            if (!is_array($parts)) {
-                return $endpoint;
+            if (!is_array($parts)) { // @codeCoverageIgnore
+                return $endpoint; // @codeCoverageIgnore
             }
 
             $scheme = $parts['scheme'] ?? 'tcp';

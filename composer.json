@@ -1,6 +1,6 @@
 {
     "name": "cloud-castle/ssh",
-    "description": "Нативный SSH-2/SFTP клиент PHP 8.1+: sync/async (Fibers), пул сессий, мультипроцесс, host-key verify, SSRF-guard, без Composer runtime-зависимостей.",
+    "description": "Нативный SSH-2 клиент PHP 8.1+: sync/async (Fibers), пул сессий, мультипроцесс, host-key verify, SSRF-guard, subsystem API, без Composer runtime-зависимостей.",
     "license": "MIT",
     "type": "library",
     "keywords": [
@@ -10,7 +10,6 @@
         "cloudcastle",
         "ssh",
         "ssh2",
-        "sftp",
         "scp",
         "async",
         "fibers",
@@ -18,7 +17,8 @@
         "security",
         "openssl",
         "pure-php",
-        "networking"
+        "networking",
+        "subsystem"
     ],
     "authors": [
         {

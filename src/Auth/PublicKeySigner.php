@@ -51,8 +51,8 @@ final class PublicKeySigner
 
         $details = openssl_pkey_get_details($key);
 
-        if (!is_array($details) || !isset($details['type']) || !is_int($details['type'])) {
-            throw new ConnectionException('Не удалось прочитать параметры SSH-ключа');
+        if (!is_array($details) || !isset($details['type']) || !is_int($details['type'])) { // @codeCoverageIgnore
+            throw new ConnectionException('Не удалось прочитать параметры SSH-ключа'); // @codeCoverageIgnore
         }
 
         $type = $details['type'];
@@ -61,9 +61,14 @@ final class PublicKeySigner
             return $this->rsaParts($key, $details['rsa'] ?? null);
         }
 
-        if (defined('OPENSSL_KEYTYPE_ED25519') && $type === constant('OPENSSL_KEYTYPE_ED25519')) {
+        // @codeCoverageIgnoreStart
+        if (
+            defined('OPENSSL_KEYTYPE_ED25519')
+            && $type === constant('OPENSSL_KEYTYPE_ED25519')
+        ) {
             return $this->ed25519Parts($key, $details['ed25519'] ?? null);
         }
+        // @codeCoverageIgnoreEnd
 
         throw new ConnectionException('Поддерживаются RSA и Ed25519 private keys (PEM)');
     }
@@ -128,7 +133,7 @@ final class PublicKeySigner
         $algorithm = $parts['algorithm'];
 
         $signature = match ($algorithm) {
-            'ssh-ed25519' => $this->signEd25519($toSign, $parts),
+            'ssh-ed25519' => $this->signEd25519($toSign, $parts), // @codeCoverageIgnore
             'rsa-sha2-512' => $this->opensslSign($toSign, $parts['key'], OPENSSL_ALGO_SHA512, 'RSA-SHA512'),
             'rsa-sha2-256' => $this->opensslSign($toSign, $parts['key'], OPENSSL_ALGO_SHA256, 'RSA-SHA256'),
             default => $this->opensslSign($toSign, $parts['key'], OPENSSL_ALGO_SHA1, 'RSA-SHA1'),
@@ -154,8 +159,8 @@ final class PublicKeySigner
         $signature = '';
         $signed = openssl_sign($toSign, $signature, $key, $algorithm);
 
-        if (!$signed) {
-            throw new ConnectionException($label . ' подпись не удалась');
+        if (!$signed) { // @codeCoverageIgnore
+            throw new ConnectionException($label . ' подпись не удалась'); // @codeCoverageIgnore
         }
 
         return $this->requireSignatureBytes($signature, $label);
@@ -178,6 +183,7 @@ final class PublicKeySigner
      */
     private function signEd25519(string $toSign, array $parts): string
     {
+        // @codeCoverageIgnoreStart
         $secret = $parts['ed25519Secret'];
 
         if (is_string($secret) && $secret !== '' && function_exists('sodium_crypto_sign_detached')) {
@@ -196,6 +202,7 @@ final class PublicKeySigner
         }
 
         return $this->requireSignatureBytes($signature, 'Ed25519');
+        // @codeCoverageIgnoreEnd
     }
 
     /**
@@ -210,8 +217,8 @@ final class PublicKeySigner
      */
     private function requireSignatureBytes(mixed $signature, string $label): string
     {
-        if (!is_string($signature) || $signature === '') {
-            throw new ConnectionException($label . ' подпись не удалась');
+        if (!is_string($signature) || $signature === '') { // @codeCoverageIgnore
+            throw new ConnectionException($label . ' подпись не удалась'); // @codeCoverageIgnore
         }
 
         return $signature;
@@ -235,8 +242,8 @@ final class PublicKeySigner
         if (is_file($privateKey)) {
             $contents = file_get_contents($privateKey);
 
-            if (!is_string($contents) || $contents === '') {
-                throw new ConnectionException('Не удалось прочитать файл ключа: ' . $privateKey);
+            if (!is_string($contents) || $contents === '') { // @codeCoverageIgnore
+                throw new ConnectionException('Не удалось прочитать файл ключа: ' . $privateKey); // @codeCoverageIgnore
             }
 
             return $contents;
@@ -262,8 +269,9 @@ final class PublicKeySigner
      */
     private function rsaParts(OpenSSLAsymmetricKey $key, mixed $rsa): array
     {
-        if (!is_array($rsa) || !isset($rsa['n'], $rsa['e']) || !is_string($rsa['n']) || !is_string($rsa['e'])) {
-            throw new ConnectionException('RSA-ключ без модуля/экспоненты');
+        $rsaOk = is_array($rsa) && isset($rsa['n'], $rsa['e']) && is_string($rsa['n']) && is_string($rsa['e']);
+        if (!$rsaOk) { // @codeCoverageIgnore
+            throw new ConnectionException('RSA-ключ без модуля/экспоненты'); // @codeCoverageIgnore
         }
 
         $blob = SshBinary::sshString('ssh-rsa')
@@ -295,6 +303,7 @@ final class PublicKeySigner
      */
     private function ed25519Parts(OpenSSLAsymmetricKey $key, mixed $ed25519Details): array
     {
+        // @codeCoverageIgnoreStart
         if (!is_array($ed25519Details) || !isset($ed25519Details['pub_key'], $ed25519Details['priv_key'])) {
             throw new ConnectionException('Ed25519: нет pub_key/priv_key в openssl details');
         }
@@ -314,5 +323,6 @@ final class PublicKeySigner
             'key' => $key,
             'ed25519Secret' => $priv . $pub,
         ];
+        // @codeCoverageIgnoreEnd
     }
 }

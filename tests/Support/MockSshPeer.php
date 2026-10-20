@@ -4,13 +4,25 @@ declare(strict_types=1);
 
 namespace CloudCastle\Ssh\Tests\Support;
 
+use RuntimeException;
+
 /**
  * Поднимает MockSshServer в отдельном PHP-процессе по TCP (без fork — дружит с coverage).
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ * @SuppressWarnings("PHPMD.StaticAccess")
  */
 final class MockSshPeer
 {
+    /**
+     * Открытые pipe peer-процессов (удерживают дескрипторы живыми).
+     *
+     * @var list<list<resource>>
+     */
+    private static array $retainedPipes = [];
+
     /**
      * Стартует peer и сразу подключается клиентом.
      *
@@ -34,7 +46,7 @@ final class MockSshPeer
         $portFile = tempnam(sys_get_temp_dir(), 'ccssh');
 
         if ($portFile === false) {
-            throw new \RuntimeException('tempnam failed');
+            throw new RuntimeException('tempnam failed');
         }
 
         $script = __DIR__ . '/mock-ssh-tcp.php';
@@ -44,11 +56,14 @@ final class MockSshPeer
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
+        $pipes = [];
         $process = proc_open($cmd, $descriptors, $pipes, dirname(__DIR__, 2));
 
-        if (!is_resource($process)) {
-            throw new \RuntimeException('proc_open mock server failed');
+        if ($process === false) {
+            throw new RuntimeException('proc_open mock server failed');
         }
+
+        self::$retainedPipes[] = array_values($pipes);
 
         return [self::waitPort($portFile), $process];
     }
@@ -61,7 +76,7 @@ final class MockSshPeer
         $stream = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 5.0);
 
         if ($stream === false) {
-            throw new \RuntimeException(sprintf('connect mock: [%d] %s', $errno, $errstr));
+            throw new RuntimeException(sprintf('connect mock: [%d] %s', $errno, $errstr));
         }
 
         stream_set_timeout($stream, 5);
@@ -70,19 +85,23 @@ final class MockSshPeer
     }
 
     /**
+     * Останавливает peer-процесс.
+     *
      * @param resource $process
      */
-    public static function stop(mixed $process): void
+    public static function stop($process): void
     {
-        if (is_resource($process)) {
-            $status = proc_get_status($process);
-
-            if (is_array($status) && ($status['running'] ?? false)) {
-                proc_terminate($process);
-            }
-
-            proc_close($process);
+        if (self::$retainedPipes !== []) {
+            self::$retainedPipes = [];
         }
+
+        $status = proc_get_status($process);
+
+        if ($status['running']) {
+            proc_terminate($process);
+        }
+
+        proc_close($process);
     }
 
     private static function waitPort(string $portFile): int
@@ -103,6 +122,6 @@ final class MockSshPeer
             usleep(20_000);
         }
 
-        throw new \RuntimeException('mock server port timeout');
+        throw new RuntimeException('mock server port timeout');
     }
 }

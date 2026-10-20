@@ -11,6 +11,7 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Security\EndpointGuard;
 use CloudCastle\Ssh\Security\HostKeyVerifier;
+use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Session\NativeSession;
 
 /**
@@ -18,6 +19,9 @@ use CloudCastle\Ssh\Session\NativeSession;
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.CyclomaticComplexity")
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
  */
 final class SessionFactory implements SessionFactoryInterface
 {
@@ -39,38 +43,14 @@ final class SessionFactory implements SessionFactoryInterface
         string $endpoint,
         AuthCredentials $auth,
         ?ConnectionOptions $options = null,
-        bool $sftp = false,
     ): SessionInterface {
         $options ??= ConnectionOptions::defaults();
         $pinned = $this->guard->prepare($endpoint, $options);
-        $host = $pinned->host();
-        $port = $pinned->port() > 0 ? $pinned->port() : 22;
-
-        if ($host === '') {
-            $host = $endpoint;
-        }
-
-        $timeout = (int) max(1, (int) $options->connectTimeout());
+        [$host, $port, $target] = $this->buildTarget($pinned, $endpoint);
+        $timeoutSeconds = max(1, (int) $options->connectTimeout());
         $errno = 0;
         $errstr = '';
-        $target = 'tcp://' . (str_contains($host, ':') && filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? '[' . $host . ']' : $host) . ':' . $port;
-
-        if (str_contains($pinned->connectEndpoint(), '://')) {
-            $parts = parse_url($pinned->connectEndpoint());
-
-            if (is_array($parts) && isset($parts['host']) && is_string($parts['host'])) {
-                $h = $parts['host'];
-                $p = isset($parts['port']) && is_int($parts['port']) ? $parts['port'] : $port;
-                $target = 'tcp://' . (str_contains($h, ':') ? '[' . $h . ']' : $h) . ':' . $p;
-                $host = $h;
-                $port = $p;
-            }
-        } elseif ($pinned->resolvedIps() !== []) {
-            $ip = $pinned->resolvedIps()[0];
-            $target = 'tcp://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port;
-        }
-
-        $stream = @stream_socket_client($target, $errno, $errstr, (float) $timeout);
+        $stream = @stream_socket_client($target, $errno, $errstr, (float) $timeoutSeconds);
 
         if ($stream === false) {
             throw new ConnectionException(sprintf(
@@ -83,10 +63,78 @@ final class SessionFactory implements SessionFactoryInterface
         }
 
         stream_set_timeout($stream, max(1, (int) $options->ioTimeout()));
-        $session = new NativeSession($stream, $auth, $sftp);
+        $session = new NativeSession($stream, $auth);
         $this->hostKeys->verify($session->hostKeyFingerprint(), $options);
         $session->bindEndpoint($endpoint);
 
         return $session;
+    }
+
+    /**
+     * Собирает host/port/target для stream_socket_client.
+     *
+     * @return array{0: string, 1: int, 2: string}
+     */
+    private function buildTarget(PinnedEndpoint $pinned, string $endpoint): array
+    {
+        $host = $pinned->host();
+        $port = $pinned->port() > 0 ? $pinned->port() : 22;
+
+        if ($host === '') {
+            $host = $endpoint;
+        }
+
+        $connectEndpoint = $pinned->connectEndpoint();
+
+        if (str_contains($connectEndpoint, '://')) {
+            return $this->targetFromUrl($connectEndpoint, $host, $port);
+        }
+
+        if ($pinned->resolvedIps() !== []) {
+            $address = $pinned->resolvedIps()[0];
+
+            return [$host, $port, $this->tcpTarget($address, $port)];
+        }
+
+        return [$host, $port, $this->tcpTarget($host, $port)];
+    }
+
+    /**
+     * Target из URL-подобного pinned endpoint.
+     *
+     * @return array{0: string, 1: int, 2: string}
+     */
+    private function targetFromUrl(string $connectEndpoint, string $fallbackHost, int $fallbackPort): array
+    {
+        $parts = parse_url($connectEndpoint);
+
+        if (!is_array($parts) || !isset($parts['host'])) {
+            return [$fallbackHost, $fallbackPort, $this->tcpTarget($fallbackHost, $fallbackPort)];
+        }
+
+        $host = $parts['host'];
+
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            $host = substr($host, 1, -1);
+        }
+
+        $port = $parts['port'] ?? $fallbackPort;
+
+        return [$host, $port, $this->tcpTarget($host, $port)];
+    }
+
+    /**
+     * Формирует tcp:// URI с учётом IPv6.
+     */
+    private function tcpTarget(string $host, int $port): string
+    {
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            $host = substr($host, 1, -1);
+        }
+
+        $isIpv6 = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false
+            || str_contains($host, ':');
+
+        return 'tcp://' . ($isIpv6 ? '[' . $host . ']' : $host) . ':' . $port;
     }
 }

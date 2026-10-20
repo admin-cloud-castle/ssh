@@ -16,6 +16,18 @@ use PHPUnit\Framework\TestCase;
 /**
  * Интеграция NativeSession с MockSshServer (TCP peer-процесс).
  */
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ */
 #[CoversClass(NativeSession::class)]
 #[CoversClass(SshWire::class)]
 #[CoversClass(SshBinary::class)]
@@ -37,6 +49,35 @@ final class NativeSessionTest extends TestCase
             self::assertSame('mock://local', $session->remoteEndpoint());
             $session->disconnect();
             self::assertFalse($session->isConnected());
+            $session->disconnect();
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testOpenSubsystem(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session->openSubsystem('sftp');
+            $session->openSubsystem('sftp');
+            self::assertTrue($session->isConnected());
+            $session->disconnect();
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testWriteAndReadSessionChannel(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session->write('hello');
+            self::assertSame('echo:hello', $session->read(32));
             $session->disconnect();
         } finally {
             MockSshPeer::stop($process);

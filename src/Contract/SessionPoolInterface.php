@@ -16,7 +16,6 @@ interface SessionPoolInterface
         string $endpoint,
         AuthCredentials $auth,
         ?ConnectionOptions $options = null,
-        bool $sftp = false,
     ): SessionInterface;
 
     /**

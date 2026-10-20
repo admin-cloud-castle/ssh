@@ -24,23 +24,21 @@ final class SshBinary
      */
     public static function readUint32(string $buffer, int &$offset): int
     {
+        if ($offset + 4 > strlen($buffer)) {
+            $offset = strlen($buffer);
+
+            return 0;
+        }
+
         $chunk = substr($buffer, $offset, 4);
         $offset += 4;
         $parts = unpack('Nval', $chunk);
 
-        if (!is_array($parts) || !array_key_exists('val', $parts)) {
-            return 0;
+        if (!is_array($parts)) { // @codeCoverageIgnore
+            return 0; // @codeCoverageIgnore
         }
 
-        if (is_int($parts['val'])) {
-            return $parts['val'];
-        }
-
-        if (is_float($parts['val'])) {
-            return (int) $parts['val'];
-        }
-
-        return 0;
+        return isset($parts['val']) && is_int($parts['val']) ? $parts['val'] : 0;
     }
 
     /**

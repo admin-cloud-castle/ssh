@@ -11,6 +11,18 @@ use CloudCastle\Ssh\Wire\SshBinary;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+ */
 #[CoversClass(PublicKeySigner::class)]
 #[CoversClass(SshBinary::class)]
 #[CoversClass(AuthCredentials::class)]
@@ -20,7 +32,14 @@ final class PublicKeySignerTest extends TestCase
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         self::assertNotFalse($key);
-        openssl_pkey_export($key, $pem);
+        $path = tempnam(sys_get_temp_dir(), 'ccsshkey');
+        self::assertNotFalse($path);
+        self::assertTrue(openssl_pkey_export_to_file($key, $path));
+        $pem = file_get_contents($path);
+        unlink($path);
+        self::assertNotFalse($pem);
+        self::assertNotSame('', $pem);
+
         $auth = AuthCredentials::withPublicKey('alice', $pem);
         $signer = new PublicKeySigner();
         $parts = $signer->load($auth);

@@ -19,18 +19,16 @@ interface AsyncRuntimeInterface
     /**
      * Ждёт читаемости stream (из Fiber — suspend).
      *
-     * @param mixed $stream
      *
-     * @throws \CloudCastle\Ssh\Exception\TimeoutException
+     * @throws \RuntimeException При таймауте ожидания
      */
     public function awaitReadable(mixed $stream, float $timeoutSeconds): void;
 
     /**
      * Ждёт записываемости stream.
      *
-     * @param mixed $stream
      *
-     * @throws \CloudCastle\Ssh\Exception\TimeoutException
+     * @throws \RuntimeException При таймауте ожидания
      */
     public function awaitWritable(mixed $stream, float $timeoutSeconds): void;
 }

@@ -31,27 +31,18 @@ final class Ssh implements SshInterface
      */
     public const VERSION = '1.0.0';
 
-    /** @var SessionFactoryInterface|null */
-    private ?SessionFactoryInterface $factorySlot = null;
-
-    /** @var SessionPoolInterface|null */
     private ?SessionPoolInterface $poolSlot = null;
 
-    /** @var AsyncRuntimeInterface|null */
     private ?AsyncRuntimeInterface $asyncSlot = null;
 
-    /** @var ProcessPool|null */
     private ?ProcessPool $processSlot = null;
 
     /**
-     * @param SessionFactoryInterface|null $factory Внешняя фабрика (тесты/DI)
+     * @param SessionFactoryInterface|null $factorySlot Внешняя фабрика (тесты/DI)
      * @param int                          $workers Число process-workers
      */
-    public function __construct(
-        ?SessionFactoryInterface $factory = null,
-        private readonly int $workers = 2,
-    ) {
-        $this->factorySlot = $factory;
+    public function __construct(private ?SessionFactoryInterface $factorySlot = null, private readonly int $workers = 2)
+    {
     }
 
     /**
@@ -71,9 +62,8 @@ final class Ssh implements SshInterface
         string $endpoint,
         AuthCredentials $auth,
         ?ConnectionOptions $options = null,
-        bool $sftp = false,
     ): SessionInterface {
-        return $this->factory()->connect($endpoint, $auth, $options, $sftp);
+        return $this->factory()->connect($endpoint, $auth, $options);
     }
 
     /**

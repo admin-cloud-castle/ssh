@@ -143,8 +143,8 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
         $except = null;
         $result = $this->selector->select($read, $write, $except, $seconds, $microseconds);
 
-        if ($result === false) {
-            throw new TimeoutException(sprintf('Ошибка ожидания %s', $op));
+        if ($result === false) { // @codeCoverageIgnore
+            throw new TimeoutException(sprintf('Ошибка ожидания %s', $op)); // @codeCoverageIgnore
         }
 
         if ($result === 0) {

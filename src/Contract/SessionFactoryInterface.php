@@ -12,14 +12,11 @@ interface SessionFactoryInterface
     /**
      * Устанавливает TCP + SSH handshake + auth.
      *
-     * @throws \CloudCastle\Ssh\Exception\ConnectionException
-     * @throws \CloudCastle\Ssh\Exception\HostKeyException
-     * @throws \CloudCastle\Ssh\Exception\SecurityException
+     * @throws \RuntimeException При ошибке TCP, host key или SSRF-guard
      */
     public function connect(
         string $endpoint,
         AuthCredentials $auth,
         ?ConnectionOptions $options = null,
-        bool $sftp = false,
     ): SessionInterface;
 }

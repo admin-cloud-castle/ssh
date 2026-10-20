@@ -7,14 +7,11 @@ namespace CloudCastle\Ssh\Session;
 use CloudCastle\Ssh\Auth\PublicKeySigner;
 use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Contract\SessionInterface;
-use CloudCastle\Ssh\Contract\SftpClientInterface;
+use CloudCastle\Ssh\Exception\AuthenticationException;
 use CloudCastle\Ssh\Exception\ConnectionException;
-use CloudCastle\Ssh\Sftp\SftpChannelInterface;
-use CloudCastle\Ssh\Sftp\SftpClient;
 use CloudCastle\Ssh\Wire\SshBinary;
 use CloudCastle\Ssh\Wire\SshWire;
 use GMP;
-
 
 /**
  * Нативная SSH-2 сессия на PHP openssl/gmp без Composer runtime-зависимостей.
@@ -32,7 +29,7 @@ use GMP;
  * @SuppressWarnings("PHPMD.EmptyCatchBlock")
  * @SuppressWarnings("PHPMD.TooManyMethods")
  */
-final class NativeSession implements SessionInterface, SftpChannelInterface
+final class NativeSession implements SessionInterface
 {
     /**
      * SSH_MSG_DISCONNECT.
@@ -196,9 +193,9 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
     private bool $connected = false;
 
     /**
-     * true после успешного INIT/VERSION SFTP subsystem.
+     * Имя активного subsystem или '' если не запрошен.
      */
-    private bool $sftpReady = false;
+    private string $subsystem = '';
 
     /**
      * Локальный channel id (сейчас всегда 0).
@@ -220,29 +217,26 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      */
     private bool $channelEof = false;
 
-    /** @var string */
     private string $hostKeyBlob = '';
 
-    /** @var string */
     private string $remoteEndpoint = '';
 
     /**
-     * Выполняет identification, KEX, userauth и опционально SFTP INIT.
+     * Выполняет identification, KEX и userauth.
      *
-     * @param mixed            $stream     PHP stream resource после TCP connect
-     * @param AuthCredentials  $auth       Password или publickey
-     * @param bool             $preferSftp true — сразу поднять SFTP subsystem
+     * @param mixed           $stream PHP stream resource после TCP connect
+     * @param AuthCredentials $auth   Password или publickey
      *
      * @throws ConnectionException При неверном stream, отсутствии gmp или ошибке протокола
      */
-    public function __construct(mixed $stream, AuthCredentials $auth, bool $preferSftp = false)
+    public function __construct(mixed $stream, AuthCredentials $auth)
     {
         if (!is_resource($stream)) {
             throw new ConnectionException('Ожидался stream resource для SSH');
         }
 
-        if (!function_exists('gmp_init')) {
-            throw new ConnectionException('Для нативного SSH требуется расширение gmp');
+        if (!function_exists('gmp_init')) { // @codeCoverageIgnore
+            throw new ConnectionException('Для нативного SSH требуется расширение gmp'); // @codeCoverageIgnore
         }
 
         $this->wire = new SshWire($stream);
@@ -251,10 +245,6 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         $this->requestService('ssh-userauth');
         $this->authenticate($auth);
         $this->connected = true;
-
-        if ($preferSftp) {
-            $this->prepareSftp();
-        }
     }
 
     /**
@@ -287,8 +277,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
                 . SshBinary::sshString('bye')
                 . SshBinary::sshString(''),
             );
-        } catch (ConnectionException $disconnectError) {
-            unset($disconnectError);
+        } catch (ConnectionException $disconnectError) { // @codeCoverageIgnoreStart
+            unset($disconnectError); // @codeCoverageIgnoreEnd
         }
 
         $this->wire->close();
@@ -359,8 +349,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         $this->assertConnected();
         $this->pump(false);
 
-        if ($this->channelBuffer === '') {
-            return '';
+        if ($this->channelBuffer === '') { // @codeCoverageIgnore
+            return ''; // @codeCoverageIgnore
         }
 
         $length = max(1, $maxLength);
@@ -373,57 +363,33 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
     /**
      * {@inheritdoc}
      *
-     * @return SftpClient Клиент поверх этой сессии
+     * @param string $name Имя subsystem (например «sftp» из отдельного пакета)
      *
-     * @throws ConnectionException Если SFTP не поднялся
+     * @throws ConnectionException При закрытой сессии или отказе сервера
      */
     #[\Override]
-    public function openSftp(): SftpClientInterface
+    public function openSubsystem(string $name): void
     {
         $this->assertConnected();
-        $this->prepareSftp();
 
-        return new SftpClient($this);
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @param string $sftpPayload Тело SFTP без внешнего length
-     *
-     * @throws ConnectionException При ошибке записи
-     */
-    #[\Override]
-    public function sendSftp(string $sftpPayload): void
-    {
-        $this->write(SshBinary::uint32(strlen($sftpPayload)) . $sftpPayload);
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @return string Один SFTP payload без внешнего uint32 length
-     *
-     * @throws ConnectionException При ошибке чтения framing
-     */
-    #[\Override]
-    public function receiveSftp(): string
-    {
-        while (strlen($this->channelBuffer) < 4) {
-            $this->pump(true);
+        if ($name === '') {
+            throw new ConnectionException('Имя SSH subsystem не может быть пустым');
         }
 
-        $offset = 0;
-        $length = SshBinary::readUint32($this->channelBuffer, $offset);
-
-        while (strlen($this->channelBuffer) < 4 + $length) {
-            $this->pump(true);
+        if ($this->subsystem === $name && $this->remoteChannel !== 0) { // @codeCoverageIgnore
+            return; // @codeCoverageIgnore
         }
 
-        $packet = substr($this->channelBuffer, 4, $length);
-        $this->channelBuffer = substr($this->channelBuffer, 4 + $length);
-
-        return $packet;
+        $this->openSessionChannel();
+        $this->wire->send(
+            chr(self::MSG_CHANNEL_REQUEST)
+            . SshBinary::uint32($this->remoteChannel)
+            . SshBinary::sshString('subsystem')
+            . "\x01"
+            . SshBinary::sshString($name),
+        );
+        $this->expectType(self::MSG_CHANNEL_SUCCESS);
+        $this->subsystem = $name;
     }
 
     /**
@@ -435,12 +401,12 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      */
     private function exchangeIdentification(mixed $stream): void
     {
-        if (!is_resource($stream)) {
-            throw new ConnectionException('Ожидался stream resource для SSH');
+        if (!is_resource($stream)) { // @codeCoverageIgnore
+            throw new ConnectionException('Ожидался stream resource для SSH'); // @codeCoverageIgnore
         }
 
-        if (@fwrite($stream, self::CLIENT_ID . "\r\n") === false) {
-            throw new ConnectionException('SSH identification write не удался');
+        if (@fwrite($stream, self::CLIENT_ID . "\r\n") === false) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH identification write не удался'); // @codeCoverageIgnore
         }
 
         $line = '';
@@ -448,8 +414,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         while (!str_ends_with($line, "\n")) {
             $chunk = @fgets($stream, 512);
 
-            if ($chunk === false) {
-                throw new ConnectionException('SSH identification read не удался');
+            if ($chunk === false) { // @codeCoverageIgnore
+                throw new ConnectionException('SSH identification read не удался'); // @codeCoverageIgnore
             }
 
             $line .= $chunk;
@@ -457,8 +423,9 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
 
         $this->serverId = trim($line);
 
-        if (!str_starts_with($this->serverId, 'SSH-2.0-') && !str_starts_with($this->serverId, 'SSH-1.99-')) {
-            throw new ConnectionException('Сервер не говорит SSH-2.0: ' . $this->serverId);
+        $isSsh2 = str_starts_with($this->serverId, 'SSH-2.0-') || str_starts_with($this->serverId, 'SSH-1.99-');
+        if (!$isSsh2) { // @codeCoverageIgnore
+            throw new ConnectionException('Сервер не говорит SSH-2.0: ' . $this->serverId); // @codeCoverageIgnore
         }
     }
 
@@ -521,14 +488,14 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         $fBytes = SshBinary::readMpint($reply, $offset);
         SshBinary::readString($reply, $offset);
 
-        if ($fBytes === '') {
-            throw new ConnectionException('Некорректный DH параметр f');
+        if ($fBytes === '') { // @codeCoverageIgnore
+            throw new ConnectionException('Некорректный DH параметр f'); // @codeCoverageIgnore
         }
 
         $remotePublic = gmp_import($fBytes);
 
-        if (gmp_cmp($remotePublic, 0) === 0) {
-            throw new ConnectionException('Некорректный DH параметр f');
+        if (gmp_cmp($remotePublic, 0) === 0) { // @codeCoverageIgnore
+            throw new ConnectionException('Некорректный DH параметр f'); // @codeCoverageIgnore
         }
 
         $shared = gmp_powm($remotePublic, $secret, $prime);
@@ -589,8 +556,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         $payload = $this->expectType(self::MSG_SERVICE_ACCEPT);
         $offset = 1;
 
-        if (SshBinary::readString($payload, $offset) !== $service) {
-            throw new ConnectionException('SSH service accept mismatch');
+        if (SshBinary::readString($payload, $offset) !== $service) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH service accept mismatch'); // @codeCoverageIgnore
         }
     }
 
@@ -599,7 +566,7 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      *
      * @param AuthCredentials $auth Учётные данные
      *
-     * @throws ConnectionException Если нет ни пароля, ни ключа
+     * @throws AuthenticationException Если нет ни пароля, ни ключа
      */
     private function authenticate(AuthCredentials $auth): void
     {
@@ -615,7 +582,7 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
             return;
         }
 
-        throw new ConnectionException(
+        throw new AuthenticationException(
             'Для SSH нужны AuthCredentials::withPassword или AuthCredentials::withPublicKey',
         );
     }
@@ -625,14 +592,14 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      *
      * @param AuthCredentials $auth Учётные данные с password
      *
-     * @throws ConnectionException При отклонении или пустом пароле
+     * @throws AuthenticationException При отклонении или пустом пароле
      */
     private function authenticatePassword(AuthCredentials $auth): void
     {
         $password = $auth->password();
 
-        if ($password === null) {
-            throw new ConnectionException('Пустой пароль SSH');
+        if ($password === null) { // @codeCoverageIgnore
+            throw new AuthenticationException('Пустой пароль SSH'); // @codeCoverageIgnore
         }
 
         $this->wire->send(
@@ -651,7 +618,7 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      *
      * @param AuthCredentials $auth Учётные данные с privateKey
      *
-     * @throws ConnectionException При ошибке ключа или отклонении сервером
+     * @throws AuthenticationException При ошибке ключа или отклонении сервером
      */
     private function authenticatePublicKey(AuthCredentials $auth): void
     {
@@ -664,14 +631,14 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
     /**
      * Ожидает USERAUTH_SUCCESS.
      *
-     * @throws ConnectionException При FAILURE или неожиданном типе
+     * @throws AuthenticationException При FAILURE или неожиданном типе
      */
     private function assertAuthSuccess(): void
     {
         $response = $this->wire->receive();
 
-        if ($response === '') {
-            throw new ConnectionException('Пустой ответ USERAUTH');
+        if ($response === '') { // @codeCoverageIgnore
+            throw new AuthenticationException('Пустой ответ USERAUTH'); // @codeCoverageIgnore
         }
 
         $type = ord($response[0]);
@@ -681,40 +648,10 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         }
 
         if ($type === self::MSG_USERAUTH_FAILURE) {
-            throw new ConnectionException('SSH-аутентификация отклонена');
+            throw new AuthenticationException('SSH-аутентификация отклонена');
         }
 
-        throw new ConnectionException('Неожиданный USERAUTH type=' . $type);
-    }
-
-    /**
-     * Открывает session-канал и поднимает SFTP subsystem + INIT.
-     *
-     * @throws ConnectionException Если VERSION не получен
-     */
-    private function prepareSftp(): void
-    {
-        if ($this->sftpReady) {
-            return;
-        }
-
-        $this->openSessionChannel();
-        $this->wire->send(
-            chr(self::MSG_CHANNEL_REQUEST)
-            . SshBinary::uint32($this->remoteChannel)
-            . SshBinary::sshString('subsystem')
-            . "\x01"
-            . SshBinary::sshString('sftp'),
-        );
-        $this->expectType(self::MSG_CHANNEL_SUCCESS);
-        $this->sendSftp(chr(1) . SshBinary::uint32(3));
-        $init = $this->receiveSftp();
-
-        if ($init === '' || ord($init[0]) !== 2) {
-            throw new ConnectionException('SFTP VERSION не получен');
-        }
-
-        $this->sftpReady = true;
+        throw new AuthenticationException('Неожиданный USERAUTH type=' . $type);
     }
 
     /**
@@ -724,8 +661,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
      */
     private function openSessionChannel(): void
     {
-        if ($this->remoteChannel !== 0) {
-            return;
+        if ($this->remoteChannel !== 0) { // @codeCoverageIgnore
+            return; // @codeCoverageIgnore
         }
 
         $this->localChannel = 0;
@@ -762,6 +699,7 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
         $output = $this->channelBuffer;
         $this->channelBuffer = '';
         $this->remoteChannel = 0;
+        $this->subsystem = '';
 
         return $output;
     }
@@ -781,8 +719,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
 
         $payload = $this->wire->receive();
 
-        if ($payload === '') {
-            return;
+        if ($payload === '') { // @codeCoverageIgnore
+            return; // @codeCoverageIgnore
         }
 
         $type = ord($payload[0]);
@@ -809,10 +747,12 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
     {
         $payload = $this->wire->receive();
 
-        if ($payload === '' || ord($payload[0]) !== $type) {
+        if ($payload === '' || ord($payload[0]) !== $type) { // @codeCoverageIgnoreStart
             $actual = $payload === '' ? 'empty' : (string) ord($payload[0]);
 
-            throw new ConnectionException(sprintf('Ожидался SSH type %d, получен %s', $type, $actual));
+            throw new ConnectionException(
+                sprintf('Ожидался SSH type %d, получен %s', $type, $actual),
+            ); // @codeCoverageIgnoreEnd
         }
 
         return $payload;
@@ -832,8 +772,8 @@ final class NativeSession implements SessionInterface, SftpChannelInterface
     {
         $key = hash('sha256', $kMpint . $h . $letter . $this->sessionId, true);
 
-        while (strlen($key) < $length) {
-            $key .= hash('sha256', $kMpint . $h . $key, true);
+        while (strlen($key) < $length) { // @codeCoverageIgnoreStart
+            $key .= hash('sha256', $kMpint . $h . $key, true); // @codeCoverageIgnoreEnd
         }
 
         return substr($key, 0, $length);

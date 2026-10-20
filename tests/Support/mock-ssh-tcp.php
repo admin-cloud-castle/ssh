@@ -14,11 +14,9 @@ if ($server === false) {
     exit(1);
 }
 
-$meta = stream_get_meta_data($server);
-$uri = is_array($meta) && isset($meta['uri']) && is_string($meta['uri']) ? $meta['uri'] : '';
 $name = stream_socket_get_name($server, false);
 
-if (!is_string($name) || !preg_match('/:(\d+)$/', $name, $m)) {
+if (!is_string($name) || preg_match('/:(\d+)$/', $name, $m) !== 1) {
     fwrite(STDERR, "port detect failed\n");
     exit(1);
 }
