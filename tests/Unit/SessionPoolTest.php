@@ -11,6 +11,7 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Pool\SessionPool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * @SuppressWarnings("PHPMD.StaticAccess")
@@ -72,6 +73,13 @@ final class SessionPoolTest extends TestCase
         $pool->release($s1);
         $pool->release($s2);
         self::assertSame(1, $pool->size());
+    }
+
+    public function testDefaultMaxPerKeyIsEight(): void
+    {
+        $pool = new SessionPool($this->createMock(SessionFactoryInterface::class));
+        $maxPerKey = new ReflectionProperty(SessionPool::class, 'maxPerKey');
+        self::assertSame(8, $maxPerKey->getValue($pool));
     }
 
     public function testMaxPerKeyZeroDefaultsToEight(): void

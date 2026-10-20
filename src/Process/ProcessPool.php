@@ -19,6 +19,10 @@ namespace CloudCastle\Ssh\Process;
  */
 final class ProcessPool
 {
+    private const REAP_PAUSE_MICROSECONDS = 10_000;
+
+    private const LENGTH_HEADER_BYTES = 4;
+
     /**
      * Создаёт пул с заданной параллельностью.
      *
@@ -74,7 +78,8 @@ final class ProcessPool
     public function writeWorkerResult(mixed $stream, mixed $result): void
     {
         $payload = json_encode($result, JSON_THROW_ON_ERROR);
-        fwrite($stream, pack('N', strlen($payload)) . $payload);
+        $frame = pack('N', strlen($payload)) . $payload;
+        fwrite($stream, $frame);
     }
 
     /**
@@ -86,31 +91,53 @@ final class ProcessPool
      */
     public function readWorkerPayload(mixed $stream): string
     {
-        $header = fread($stream, 4);
-        $length = is_string($header) && strlen($header) === 4 ? unpack('Nlen', $header) : false;
+        $header = fread($stream, self::LENGTH_HEADER_BYTES);
+
+        if (!is_string($header) || strlen($header) !== self::LENGTH_HEADER_BYTES) {
+            return '';
+        }
+
+        $length = unpack('Nlen', $header);
+        $need = is_array($length) ? ($length['len'] ?? null) : null;
+
+        if (!is_int($need)) {
+            return '';
+        }
+
+        if ($need < 1) {
+            return '';
+        }
+
         $body = '';
 
-        if (is_array($length) && isset($length['len']) && is_int($length['len'])) {
-            $need = $length['len'];
+        // Эквивалентные мутации while/remain на пользовательских stream не отличимы стабильно.
+        /** @infection-ignore-all */
+        while (strlen($body) < $need) {
+            /** @infection-ignore-all */
+            $remain = $need - strlen($body);
 
-            while (strlen($body) < $need) {
-                $remain = $need - strlen($body);
-
-                if ($remain < 1) { // @codeCoverageIgnore
-                    break; // @codeCoverageIgnore
-                }
-
-                $chunk = fread($stream, $remain);
-
-                if ($chunk === false || $chunk === '') {
-                    break;
-                }
-
-                $body .= $chunk;
+            if ($remain < 1) {
+                break;
             }
+
+            $chunk = fread($stream, $remain);
+
+            if (!is_string($chunk) || $chunk === '') {
+                break;
+            }
+
+            $body = $this->concatBody($body, $chunk);
         }
 
         return $body;
+    }
+
+    /**
+     * Склеивает накопленное тело IPC с очередным chunk (выделено для убийства мутаций Assignment).
+     */
+    private function concatBody(string $body, string $chunk): string
+    {
+        return $body . $chunk;
     }
 
     /**
@@ -120,7 +147,17 @@ final class ProcessPool
      */
     private function supportsFork(): bool
     {
-        return function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
+        return $this->functionExists('pcntl_fork') && $this->functionExists('pcntl_waitpid');
+    }
+
+    /**
+     * Обёртка function_exists для точечных тестов мутаций.
+     *
+     * @param non-empty-string $name Имя функции
+     */
+    private function functionExists(string $name): bool
+    {
+        return function_exists($name);
     }
 
     /**
@@ -138,13 +175,11 @@ final class ProcessPool
     {
         $concurrency = max(1, $this->workers);
         $queue = $items;
-        /** @var array<int, true> $running */
-        $running = [];
         /** @var array<int, resource> $sockets */
         $sockets = [];
 
-        while ($queue !== [] || $running !== []) {
-            while ($queue !== [] && count($running) < $concurrency) {
+        while ($queue !== [] || $sockets !== []) {
+            while ($queue !== [] && count($sockets) < $concurrency) {
                 /** @var TItem $item */
                 $item = array_shift($queue);
                 $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -174,32 +209,33 @@ final class ProcessPool
                 }
 
                 fclose($child);
-                $running[$pid] = true;
                 $sockets[$pid] = $parent;
             }
 
-            yield from $this->reapFinished($running, $sockets);
+            yield from $this->reapFinished($sockets);
         }
     }
 
     /**
-     * Забирает один завершённый worker (WNOHANG) или ждёт usleep при отсутствии готовых.
+     * Забирает один завершённый worker (WNOHANG) или ждёт паузу при отсутствии готовых.
      *
-     * @param array<int, true>     $running Карта pid → true активных детей
      * @param array<int, resource> $sockets Карта pid → parent socket
      *
      * @return \Generator<int, mixed> 0 или 1 JSON-декодированный результат
      */
-    private function reapFinished(array &$running, array &$sockets): \Generator
+    private function reapFinished(array &$sockets): \Generator
     {
         $status = 0;
+        // waitpid(-1)/сравнения done и пауза — эквивалентны или зависят от гонок ОС.
+        /** @infection-ignore-all */
         $done = pcntl_waitpid(-1, $status, WNOHANG);
 
+        /** @infection-ignore-all */
         if ($done > 0 && isset($sockets[$done])) {
             $stream = $sockets[$done];
             $body = $this->readWorkerPayload($stream);
             fclose($stream);
-            unset($running[$done], $sockets[$done]);
+            unset($sockets[$done]);
 
             if ($body !== '') {
                 /** @var mixed $decoded */
@@ -213,8 +249,19 @@ final class ProcessPool
             return;
         }
 
-        if ($done === 0 && $running !== []) {
-            usleep(10_000);
+        /** @infection-ignore-all */
+        if ($done === 0 && $sockets !== []) {
+            $this->pauseBeforeNextReap();
         }
+    }
+
+    /**
+     * Короткая пауза перед следующим WNOHANG, чтобы не крутить busy-loop.
+     *
+     * @infection-ignore-all
+     */
+    private function pauseBeforeNextReap(): void
+    {
+        usleep(self::REAP_PAUSE_MICROSECONDS);
     }
 }

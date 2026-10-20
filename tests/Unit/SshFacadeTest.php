@@ -78,6 +78,14 @@ final class SshFacadeTest extends TestCase
         self::assertSame('pong', $ssh->forward($session)->request('127.0.0.1', 80, 'ping'));
     }
 
+    public function testDefaultWorkerCount(): void
+    {
+        $ssh = new Ssh();
+        $processPool = $ssh->processes();
+        $workers = new ReflectionProperty(ProcessPool::class, 'workers');
+        self::assertSame(2, $workers->getValue($processPool));
+    }
+
     public function testLazySlotsReturnSameInstances(): void
     {
         $ssh = new Ssh(null, 5);

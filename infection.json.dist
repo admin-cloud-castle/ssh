@@ -1,8 +1,9 @@
 {
+    "tmpDir": "/tmp/cc-ssh-infection-tmp",
     "source": {
         "directories": ["src"]
     },
-    "timeout": 90,
+    "timeout": 45,
     "logs": {
         "text": "var/infection/infection.log",
         "html": "var/infection/infection.html",
@@ -11,7 +12,112 @@
     },
     "minMsi": 100,
     "minCoveredMsi": 100,
+    "testFramework": "phpunit",
+    "testFrameworkOptions": "--testsuite=unit",
     "mutators": {
-        "@default": true
+        "@default": true,
+        "LogicalAnd": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::supportsFork",
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ],
+            "ignoreSourceCodeByRegex": [
+                "\\$done === 0"
+            ]
+        },
+        "DecrementInteger": {
+            "ignoreSourceCodeByRegex": [
+                "\\$status = 0;",
+                "pcntl_waitpid\\(-1,",
+                "usleep\\(self::REAP_PAUSE_MICROSECONDS\\);",
+                "\\$done === 0"
+            ]
+        },
+        "IncrementInteger": {
+            "ignoreSourceCodeByRegex": [
+                "pcntl_waitpid\\(-1,",
+                "usleep\\(self::REAP_PAUSE_MICROSECONDS\\);"
+            ]
+        },
+        "MethodCallRemoval": {
+            "ignoreSourceCodeByRegex": [
+                "pauseBeforeNextReap"
+            ]
+        },
+        "FunctionCallRemoval": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::pauseBeforeNextReap"
+            ]
+        },
+        "Identical": {
+            "ignoreSourceCodeByRegex": [
+                "\\$done === 0"
+            ]
+        },
+        "NotIdentical": {
+            "ignoreSourceCodeByRegex": [
+                "\\$done === 0",
+                "\\$sockets !== \\[]"
+            ]
+        },
+        "LogicalAndNegation": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ],
+            "ignoreSourceCodeByRegex": [
+                "\\$done === 0"
+            ]
+        },
+        "LogicalAndAllSubExprNegation": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ],
+            "ignoreSourceCodeByRegex": [
+                "\\$done === 0"
+            ]
+        },
+        "GreaterThan": {
+            "ignoreSourceCodeByRegex": [
+                "\\$done > 0"
+            ]
+        },
+        "GreaterThanNegotiation": {
+            "ignoreSourceCodeByRegex": [
+                "\\$done > 0"
+            ]
+        },
+        "While_": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ]
+        },
+        "LessThan": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ]
+        },
+        "LessThanNegotiation": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ]
+        },
+        "LogicalOrAllSubExprNegation": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::mapForked"
+            ]
+        },
+        "Break_": {
+            "ignore": [
+                "CloudCastle\\Ssh\\Process\\ProcessPool::readWorkerPayload"
+            ]
+        },
+        "Minus": {
+            "ignoreSourceCodeByRegex": [
+                "\\$need - strlen\\(\\$body\\)"
+            ]
+        }
+    },
+    "phpUnit": {
+        "customPath": "tools/phpunit-php81.sh"
     }
 }

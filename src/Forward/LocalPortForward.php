@@ -46,7 +46,7 @@ final class LocalPortForward
         }
 
         $host = escapeshellarg($remoteHost);
-        $port = (string) $remotePort;
+        $port = sprintf('%d', $remotePort);
         $b64 = base64_encode($payload);
         $timeoutSeconds = max(1, (int) $timeout);
         $cmd = sprintf(

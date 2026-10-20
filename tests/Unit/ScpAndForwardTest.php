@@ -69,7 +69,11 @@ final class ScpAndForwardTest extends TestCase
         $session->expects(self::once())
             ->method('exec')
             ->with($expectedCmd)
-            ->willReturn('  ' . base64_encode('pong') . '  ');
+            ->willReturnCallback(static function (string $cmd) use ($expectedCmd): string {
+                self::assertSame($expectedCmd, $cmd);
+
+                return '  ' . base64_encode('pong') . '  ';
+            });
         $fwd = new LocalPortForward($session);
         self::assertSame('pong', $fwd->request($remoteHost, $remotePort, $payload, $timeout));
     }
@@ -77,9 +81,17 @@ final class ScpAndForwardTest extends TestCase
     public function testForwardRawResponseWhenNotBase64(): void
     {
         $session = $this->createMock(SessionInterface::class);
-        $session->method('exec')->willReturn('not-base64!!!');
+        $session->method('exec')->willReturn('  not-base64!!!  ');
         $fwd = new LocalPortForward($session);
         self::assertSame('not-base64!!!', $fwd->request('h', 1, 'x'));
+    }
+
+    public function testForwardFailedDecodeReturnsTrimmedStdout(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+        $session->method('exec')->willReturn("  \t not-valid-b64 \n");
+        $fwd = new LocalPortForward($session);
+        self::assertSame('not-valid-b64', $fwd->request('127.0.0.1', 80, 'ping'));
     }
 
     public function testForwardBadPortZero(): void
@@ -101,7 +113,10 @@ final class ScpAndForwardTest extends TestCase
         $payload = 'x';
         $expectedCmd = $this->buildExpectedForwardCommand($remoteHost, $remotePort, $payload, 0.2);
         $session = $this->createMock(SessionInterface::class);
-        $session->expects(self::once())->method('exec')->with($expectedCmd)->willReturn(base64_encode('ok'));
+        $session->expects(self::once())
+            ->method('exec')
+            ->with($expectedCmd)
+            ->willReturn(' ' . base64_encode('ok') . ' ');
         $fwd = new LocalPortForward($session);
         self::assertSame('ok', $fwd->request($remoteHost, $remotePort, $payload, 0.2));
     }
@@ -109,7 +124,7 @@ final class ScpAndForwardTest extends TestCase
     public function testForwardAcceptsMaxPort(): void
     {
         $session = $this->createMock(SessionInterface::class);
-        $session->method('exec')->willReturn(base64_encode('ok'));
+        $session->method('exec')->willReturn("\n" . base64_encode('ok') . "\n");
         $fwd = new LocalPortForward($session);
         self::assertSame('ok', $fwd->request('h', 65535, ''));
     }
@@ -124,7 +139,7 @@ final class ScpAndForwardTest extends TestCase
         float $timeout,
     ): string {
         $host = escapeshellarg($remoteHost);
-        $port = (string) $remotePort;
+        $port = sprintf('%d', $remotePort);
         $b64 = base64_encode($payload);
         $timeoutSeconds = max(1, (int) $timeout);
 

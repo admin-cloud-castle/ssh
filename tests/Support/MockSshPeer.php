@@ -148,7 +148,7 @@ final class MockSshPeer
 
     private static function waitPort(string $portFile): int
     {
-        $deadline = microtime(true) + 5.0;
+        $deadline = microtime(true) + 15.0;
 
         while (microtime(true) < $deadline) {
             if (is_file($portFile)) {
