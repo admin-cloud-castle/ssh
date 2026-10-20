@@ -48,22 +48,31 @@ final class ComparisonMarkdown
         array $labels,
         string $productName,
     ): string {
+        $best = self::lowestEligible($values, $order);
+
+        if ($best === null) {
+            return '—';
+        }
+
+        $names = self::tiedWinnerNames($values, $order, $labels, $productName, $best);
+
+        return $names === [] ? '—' : implode(', ', $names);
+    }
+
+    /**
+     * Минимальное неотрицательное значение среди участников порядка.
+     *
+     * @param array<string, float|int|null> $values
+     * @param list<string>                  $order
+     */
+    private static function lowestEligible(array $values, array $order): ?float
+    {
         $best = null;
 
         foreach ($order as $key) {
-            if (!array_key_exists($key, $values)) {
-                continue;
-            }
+            $numeric = self::eligibleNumeric($values, $key);
 
-            $value = $values[$key];
-
-            if ($value === null) {
-                continue;
-            }
-
-            $numeric = (float) $value;
-
-            if ($numeric < 0.0) {
+            if ($numeric === null) {
                 continue;
             }
 
@@ -72,37 +81,60 @@ final class ComparisonMarkdown
             }
         }
 
-        if ($best === null) {
-            return '—';
-        }
+        return $best;
+    }
 
+    /**
+     * Имена пакетов, чьи значения совпали с лучшим (с float-допуском).
+     *
+     * @param array<string, float|int|null> $values
+     * @param list<string>                  $order
+     * @param array<string, string>         $labels
+     *
+     * @return list<string>
+     */
+    private static function tiedWinnerNames(
+        array $values,
+        array $order,
+        array $labels,
+        string $productName,
+        float $best,
+    ): array {
         $names = [];
 
         foreach ($order as $key) {
-            if (!array_key_exists($key, $values)) {
-                continue;
-            }
+            $numeric = self::eligibleNumeric($values, $key);
 
-            $value = $values[$key];
-
-            if ($value === null) {
-                continue;
-            }
-
-            $numeric = (float) $value;
-
-            if ($numeric < 0.0) {
-                continue;
-            }
-
-            if (!self::isTiedBest($numeric, $best)) {
+            if ($numeric === null || !self::isTiedBest($numeric, $best)) {
                 continue;
             }
 
             $names[] = $key === 'ours' ? $productName : ($labels[$key] ?? $key);
         }
 
-        return $names === [] ? '—' : implode(', ', $names);
+        return $names;
+    }
+
+    /**
+     * Числовое значение участника или null, если ключа нет / null / отрицательное.
+     *
+     * @param array<string, float|int|null> $values
+     */
+    private static function eligibleNumeric(array $values, string $key): ?float
+    {
+        if (!array_key_exists($key, $values)) {
+            return null;
+        }
+
+        $value = $values[$key];
+
+        if ($value === null) {
+            return null;
+        }
+
+        $numeric = (float) $value;
+
+        return $numeric < 0.0 ? null : $numeric;
     }
 
     /**

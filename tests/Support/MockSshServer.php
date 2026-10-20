@@ -52,6 +52,8 @@ final class MockSshServer
 
     private string $clientId = '';
 
+    private string $advertisedServerId = self::SERVER_ID;
+
     /**
      * @param resource $stream Парный stream клиента
      */
@@ -100,7 +102,12 @@ final class MockSshServer
         $svc = $this->expectType(5);
         $off = 1;
         $name = SshBinary::readString($svc, $off);
-        $this->send(chr(6) . SshBinary::sshString($name));
+
+        if (getenv('CC_SSH_SERVICE_MISMATCH') === '1') {
+            $this->send(chr(6) . SshBinary::sshString('ssh-notauth'));
+        } else {
+            $this->send(chr(6) . SshBinary::sshString($name));
+        }
         $this->receive();
 
         if (getenv('CC_SSH_REJECT_AUTH') === '1') {
@@ -138,7 +145,7 @@ final class MockSshServer
         $hash = hash(
             'sha256',
             SshBinary::sshString($this->clientId)
-            . SshBinary::sshString(self::SERVER_ID)
+            . SshBinary::sshString($this->advertisedServerId)
             . SshBinary::sshString($clientKex)
             . SshBinary::sshString($serverKex)
             . SshBinary::sshString($this->hostKeyBlob)
@@ -153,6 +160,10 @@ final class MockSshServer
 
     private function buildDhReply(string $hash, string $fBytes): string
     {
+        if (getenv('CC_SSH_BAD_DH') === '1') {
+            $fBytes = '';
+        }
+
         $signature = '';
         $key = openssl_pkey_get_private($this->hostKeyPem);
 
@@ -195,6 +206,12 @@ final class MockSshServer
         $type = ord($packet[0]);
 
         if ($type === 1) {
+            $record = getenv('CC_SSH_DISCONNECT_FILE');
+
+            if (is_string($record) && $record !== '') {
+                file_put_contents($record, substr($packet, 1));
+            }
+
             return false;
         }
 
@@ -278,7 +295,14 @@ final class MockSshServer
         }
 
         $this->clientId = trim($line);
-        fwrite($this->stream, self::SERVER_ID . "\r\n");
+        $serverId = getenv('CC_SSH_SERVER_ID');
+
+        if (!is_string($serverId) || $serverId === '') {
+            $serverId = self::SERVER_ID;
+        }
+
+        $this->advertisedServerId = $serverId;
+        fwrite($this->stream, $serverId . "\r\n");
     }
 
     private function buildKexInit(): string

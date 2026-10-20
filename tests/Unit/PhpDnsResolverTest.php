@@ -31,4 +31,22 @@ final class PhpDnsResolverTest extends TestCase
         $local = $dns->resolve('localhost');
         self::assertContainsOnly('string', $local);
     }
+
+    public function testFromDnsRecordsDedupesViaReflection(): void
+    {
+        $dns = new PhpDnsResolver();
+        $method = new \ReflectionMethod(PhpDnsResolver::class, 'fromDnsRecords');
+        $ips = $method->invoke($dns, 'one.one.one.one');
+        self::assertContainsOnly('string', $ips);
+        self::assertSame($ips, array_values(array_unique($ips)));
+    }
+
+    public function testFromGethostbynamelReturnsUniqueList(): void
+    {
+        $dns = new PhpDnsResolver();
+        $method = new \ReflectionMethod(PhpDnsResolver::class, 'fromGethostbynamel');
+        $list = $method->invoke($dns, 'one.one.one.one');
+        self::assertContainsOnly('string', $list);
+        self::assertSame($list, array_values(array_unique($list)));
+    }
 }

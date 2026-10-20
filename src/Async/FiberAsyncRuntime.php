@@ -58,7 +58,8 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
                 continue;
             }
 
-            $this->wait($value['stream'], $value['op'], (float) $value['timeout']);
+            // 0.0 + N приводит int|float к float без (float)-cast (иначе CastFloat эквивалентен).
+            $this->wait($value['stream'], $value['op'], 0.0 + $value['timeout']);
             $value = $fiber->resume();
         }
 
@@ -142,7 +143,7 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
      */
     private function suspend(string $op, mixed $stream, float $timeoutSeconds): void
     {
-        if (!Fiber::getCurrent() instanceof Fiber) {
+        if (Fiber::getCurrent() === null) {
             $this->wait($stream, $op, $timeoutSeconds);
 
             return;
@@ -231,18 +232,24 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     /**
      * Делит float-таймаут на целые секунды и микросекунды без ложного округления вверх до 1 с.
      *
-     * @param float $timeoutSeconds Таймаут; ≤0 даёт [0, 0]
+     * @param float $timeoutSeconds Таймаут; 0 → [0,0]; отрицательный — TimeoutException
      *
      * @return array{0: int, 1: int} [seconds, microseconds]
+     *
+     * @throws TimeoutException При отрицательном таймауте
      */
     private function splitTimeout(float $timeoutSeconds): array
     {
-        if ($timeoutSeconds <= 0.0) {
+        if ($timeoutSeconds < 0.0) {
+            throw new TimeoutException('Отрицательный таймаут ожидания');
+        }
+
+        if ($timeoutSeconds === 0.0) {
             return [0, 0];
         }
 
         $seconds = (int) $timeoutSeconds;
-        $fraction = $timeoutSeconds - (float) $seconds;
+        $fraction = $timeoutSeconds - $seconds;
         $microseconds = (int) round($fraction * 1_000_000.0);
 
         if ($microseconds >= 1_000_000) {

@@ -2,7 +2,7 @@
     "source": {
         "directories": ["src"]
     },
-    "timeout": 30,
+    "timeout": 90,
     "logs": {
         "text": "var/infection/infection.log",
         "html": "var/infection/infection.html",

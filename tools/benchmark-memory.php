@@ -1,13 +1,18 @@
 <?php
 
 /**
- * Замер памяти пакета под нагрузкой (emalloc − baseline) vs аналоги → var/benchmark/memory-<php>.json.
+ * Замер памяти пакета под нагрузкой (emalloc − baseline) vs аналоги.
+ * Результат: var/benchmark/memory-<php>.json.
  */
 
 declare(strict_types=1);
 
 if (extension_loaded('xdebug') && (string) ini_get('xdebug.mode') !== 'off' && (string) ini_get('xdebug.mode') !== '') {
-    fwrite(STDERR, "предупреждение: xdebug активен — память завышена; запускайте с -d xdebug.mode=off\n");
+    fwrite(
+        STDERR,
+        "предупреждение: xdebug активен — память завышена;"
+        . " запускайте с -d xdebug.mode=off\n",
+    );
 }
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -119,7 +124,8 @@ $results = [
     'hold_iterations' => $holdIterations,
     'churn_sessions' => $churnSessions,
     'method' => 'emalloc_minus_empty_loop_baseline',
-    'note' => 'package_bytes = retained/churn − baseline пустого цикла; leak_bytes — остаток после unset+gc (hold) или прирост после churn',
+    'note' => 'package_bytes = retained/churn − baseline пустого цикла; '
+        . 'leak_bytes — остаток после unset+gc (hold) или прирост после churn',
     'generated_at' => gmdate('c'),
     'scenarios' => [],
 ];

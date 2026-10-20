@@ -74,4 +74,26 @@ final class SshBinaryTest extends TestCase
 
         self::assertSame('', SshBinary::readString("\x00\x00\x00\x05ab", $offset));
     }
+
+    public function testReadUint32AtBufferEnd(): void
+    {
+        $offset = 2;
+        self::assertSame(0, SshBinary::readUint32('ab', $offset));
+        self::assertSame(2, $offset);
+    }
+
+    public function testReadUint32MaxValue(): void
+    {
+        $encoded = SshBinary::uint32(0xFFFFFFFF);
+        $offset = 0;
+        self::assertSame(0xFFFFFFFF, SshBinary::readUint32($encoded, $offset));
+        self::assertSame(4, $offset);
+    }
+
+    public function testMpintEmptyString(): void
+    {
+        $encoded = SshBinary::mpint('');
+        $offset = 0;
+        self::assertSame('', SshBinary::readMpint($encoded, $offset));
+    }
 }

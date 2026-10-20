@@ -43,10 +43,9 @@ final class PublicKeySigner
 
         if ($key === false) {
             $error = openssl_error_string();
+            $suffix = is_string($error) ? $error : '';
 
-            throw new ConnectionException(
-                'Не удалось загрузить SSH private key: ' . ($error !== false ? $error : ''),
-            );
+            throw new ConnectionException('Не удалось загрузить SSH private key: ' . $suffix);
         }
 
         $details = openssl_pkey_get_details($key);

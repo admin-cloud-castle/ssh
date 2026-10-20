@@ -42,7 +42,7 @@ final class ProcessPool
      * @template TResult
      *
      * @param list<TItem>             $items  Входные элементы; [] — пустой генератор
-     * @param callable(TItem):TResult $worker Чистая функция элемента → результат (должен сериализоваться)
+     * @param callable(TItem):TResult $worker Чистая функция элемента → результат (должен кодироваться в JSON)
      *
      * @return \Generator<int, TResult> Поток результатов
      */
@@ -64,14 +64,16 @@ final class ProcessPool
     }
 
     /**
-     * Пишет length-prefixed serialize($result) в stream (формат child→parent).
+     * Пишет length-prefixed JSON результата в stream (формат child→parent).
      *
      * @param resource $stream Открытый конец socket pair (на запись)
-     * @param mixed    $result Значение для serialize (только массивы/скаляры — allowed_classes=false)
+     * @param mixed    $result Значение для json_encode (массивы/скаляры; объекты не поддерживаются)
+     *
+     * @throws \JsonException Если результат нельзя закодировать в JSON
      */
     public function writeWorkerResult(mixed $stream, mixed $result): void
     {
-        $payload = serialize($result);
+        $payload = json_encode($result, JSON_THROW_ON_ERROR);
         fwrite($stream, pack('N', strlen($payload)) . $payload);
     }
 
@@ -186,7 +188,7 @@ final class ProcessPool
      * @param array<int, true>     $running Карта pid → true активных детей
      * @param array<int, resource> $sockets Карта pid → parent socket
      *
-     * @return \Generator<int, mixed> 0 или 1 unserialize-результат
+     * @return \Generator<int, mixed> 0 или 1 JSON-декодированный результат
      */
     private function reapFinished(array &$running, array &$sockets): \Generator
     {
@@ -200,8 +202,11 @@ final class ProcessPool
             unset($running[$done], $sockets[$done]);
 
             if ($body !== '') {
-                // IPC только от своих fork-worker'ов; классы запрещены (массивы/скаляры).
-                yield unserialize($body, ['allowed_classes' => false]);
+                $decoded = json_decode($body, true);
+
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    yield $decoded;
+                }
             }
 
             return;

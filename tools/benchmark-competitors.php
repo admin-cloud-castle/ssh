@@ -8,7 +8,11 @@
 declare(strict_types=1);
 
 if (extension_loaded('xdebug') && (string) ini_get('xdebug.mode') !== 'off' && (string) ini_get('xdebug.mode') !== '') {
-    fwrite(STDERR, "предупреждение: xdebug активен — ns/op зашумлены; запускайте с -d xdebug.mode=off\n");
+    fwrite(
+        STDERR,
+        "предупреждение: xdebug активен — ns/op зашумлены;"
+        . " запускайте с -d xdebug.mode=off\n",
+    );
 }
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -76,7 +80,13 @@ $benches['ours_client_construct'] = static fn (): array => $measure(static funct
     unset($client);
 }, $iterations, $warm);
 
-$benches['phpseclib_client_construct'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_client_construct'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -87,7 +97,13 @@ $benches['phpseclib_client_construct'] = static function () use ($measure, $iter
     }, $iterations, $warm);
 };
 
-$benches['spatie_client_construct'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_client_construct'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -99,7 +115,13 @@ $benches['spatie_client_construct'] = static function () use ($measure, $iterati
 };
 
 $benches['herzult_client_construct'] = $unavailable;
-$benches['flysystem_client_construct'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_client_construct'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }
@@ -122,7 +144,13 @@ $benches['ours_password_auth_setup'] = static fn (): array => $measure(static fu
     unset($auth);
 }, $iterations, $warm);
 
-$benches['phpseclib_password_auth_setup'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_password_auth_setup'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -135,7 +163,13 @@ $benches['phpseclib_password_auth_setup'] = static function () use ($measure, $i
     }, $iterations, $warm);
 };
 
-$benches['spatie_password_auth_setup'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_password_auth_setup'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -147,7 +181,13 @@ $benches['spatie_password_auth_setup'] = static function () use ($measure, $iter
 };
 
 $benches['herzult_password_auth_setup'] = $unavailable;
-$benches['flysystem_password_auth_setup'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_password_auth_setup'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }
@@ -169,7 +209,13 @@ $benches['ours_timeout_configure'] = static fn (): array => $measure(static func
     unset($options);
 }, $iterations, $warm);
 
-$benches['phpseclib_timeout_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_timeout_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -181,7 +227,13 @@ $benches['phpseclib_timeout_configure'] = static function () use ($measure, $ite
     }, $iterations, $warm);
 };
 
-$benches['spatie_timeout_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_timeout_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -192,7 +244,13 @@ $benches['spatie_timeout_configure'] = static function () use ($measure, $iterat
     }, $iterations, $warm);
 };
 
-$benches['flysystem_timeout_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_timeout_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }
@@ -219,7 +277,13 @@ $benches['ours_port_configure'] = static function () use ($measure, $iterations,
     }, $iterations, $warm);
 };
 
-$benches['phpseclib_port_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_port_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -230,7 +294,13 @@ $benches['phpseclib_port_configure'] = static function () use ($measure, $iterat
     }, $iterations, $warm);
 };
 
-$benches['spatie_port_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_port_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -241,7 +311,13 @@ $benches['spatie_port_configure'] = static function () use ($measure, $iteration
     }, $iterations, $warm);
 };
 
-$benches['flysystem_port_configure'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_port_configure'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }
@@ -262,7 +338,13 @@ $benches['ours_hostkey_policy'] = static fn (): array => $measure(static functio
     unset($options);
 }, $iterations, $warm);
 
-$benches['spatie_hostkey_policy'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_hostkey_policy'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -283,7 +365,13 @@ $benches['ours_endpoint_prepare'] = static function () use ($measure, $iteration
     }, $iterations, $warm);
 };
 
-$benches['phpseclib_endpoint_prepare'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_endpoint_prepare'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -294,7 +382,13 @@ $benches['phpseclib_endpoint_prepare'] = static function () use ($measure, $iter
     }, $iterations, $warm);
 };
 
-$benches['spatie_endpoint_prepare'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_endpoint_prepare'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -305,7 +399,13 @@ $benches['spatie_endpoint_prepare'] = static function () use ($measure, $iterati
     }, $iterations, $warm);
 };
 
-$benches['flysystem_endpoint_prepare'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_endpoint_prepare'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }
@@ -333,7 +433,13 @@ $benches['ours_full_client_stack'] = static function () use ($measure, $iteratio
     }, $iterations, $warm);
 };
 
-$benches['phpseclib_full_client_stack'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasPhpsec): array {
+$benches['phpseclib_full_client_stack'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasPhpsec
+): array {
     if (!$hasPhpsec) {
         return $unavailable();
     }
@@ -347,7 +453,13 @@ $benches['phpseclib_full_client_stack'] = static function () use ($measure, $ite
     }, $iterations, $warm);
 };
 
-$benches['spatie_full_client_stack'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasSpatie): array {
+$benches['spatie_full_client_stack'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasSpatie
+): array {
     if (!$hasSpatie) {
         return $unavailable();
     }
@@ -362,7 +474,13 @@ $benches['spatie_full_client_stack'] = static function () use ($measure, $iterat
     }, $iterations, $warm);
 };
 
-$benches['flysystem_full_client_stack'] = static function () use ($measure, $iterations, $warm, $unavailable, $hasFly): array {
+$benches['flysystem_full_client_stack'] = static function () use (
+    $measure,
+    $iterations,
+    $warm,
+    $unavailable,
+    $hasFly
+): array {
     if (!$hasFly) {
         return $unavailable();
     }

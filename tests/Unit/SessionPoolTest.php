@@ -73,4 +73,90 @@ final class SessionPoolTest extends TestCase
         $pool->release($s2);
         self::assertSame(1, $pool->size());
     }
+
+    public function testMaxPerKeyZeroDefaultsToEight(): void
+    {
+        $factory = $this->createMock(SessionFactoryInterface::class);
+        $factory->expects(self::never())->method('connect');
+        $pool = new SessionPool($factory, 0);
+
+        for ($index = 0; $index < 8; ++$index) {
+            $session = $this->createMock(SessionInterface::class);
+            $session->method('isConnected')->willReturn(true);
+            $session->method('remoteEndpoint')->willReturn('host:22');
+            $pool->release($session);
+        }
+
+        self::assertSame(8, $pool->size());
+
+        $overflow = $this->createMock(SessionInterface::class);
+        $overflow->method('isConnected')->willReturn(true);
+        $overflow->method('remoteEndpoint')->willReturn('host:22');
+        $overflow->expects(self::once())->method('disconnect');
+        $pool->release($overflow);
+        self::assertSame(8, $pool->size());
+    }
+
+    public function testEndpointKeyIsCaseInsensitive(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+        $session->method('isConnected')->willReturn(true);
+        $session->method('remoteEndpoint')->willReturn('HOST:22');
+        $factory = $this->createMock(SessionFactoryInterface::class);
+        $factory->expects(self::never())->method('connect');
+        $pool = new SessionPool($factory, 2);
+        $pool->release($session);
+        $got = $pool->acquire('host:22', AuthCredentials::withPassword('u', 'p'));
+        self::assertSame($session, $got);
+    }
+
+    public function testAcquireDisconnectsStaleIdle(): void
+    {
+        $dead = $this->createMock(SessionInterface::class);
+        $dead->method('isConnected')->willReturn(false);
+        $dead->expects(self::once())->method('disconnect');
+        $alive = $this->createMock(SessionInterface::class);
+        $alive->method('isConnected')->willReturn(true);
+        $alive->method('remoteEndpoint')->willReturn('h');
+        $factory = $this->createMock(SessionFactoryInterface::class);
+        $factory->expects(self::never())->method('connect');
+        $pool = new SessionPool($factory, 2);
+        $pool->release($alive);
+        $ref = new \ReflectionProperty(SessionPool::class, 'idle');
+        $ref->setValue($pool, ['h' => [$alive, $dead]]);
+        $got = $pool->acquire('H', AuthCredentials::withPassword('u', 'p'));
+        self::assertSame($alive, $got);
+    }
+
+    public function testDrainClosesAllBuckets(): void
+    {
+        $first = $this->createMock(SessionInterface::class);
+        $first->method('isConnected')->willReturn(true);
+        $first->method('remoteEndpoint')->willReturn('a:22');
+        $first->expects(self::once())->method('disconnect');
+        $second = $this->createMock(SessionInterface::class);
+        $second->method('isConnected')->willReturn(true);
+        $second->method('remoteEndpoint')->willReturn('b:22');
+        $second->expects(self::once())->method('disconnect');
+        $pool = new SessionPool($this->createMock(SessionFactoryInterface::class), 4);
+        $pool->release($first);
+        $pool->release($second);
+        self::assertSame(2, $pool->size());
+        $pool->drain();
+        self::assertSame(0, $pool->size());
+    }
+
+    public function testSizeSumsAllBuckets(): void
+    {
+        $pool = new SessionPool($this->createMock(SessionFactoryInterface::class), 4);
+
+        foreach (['alpha:22', 'beta:22', 'alpha:22'] as $endpoint) {
+            $session = $this->createMock(SessionInterface::class);
+            $session->method('isConnected')->willReturn(true);
+            $session->method('remoteEndpoint')->willReturn($endpoint);
+            $pool->release($session);
+        }
+
+        self::assertSame(3, $pool->size());
+    }
 }

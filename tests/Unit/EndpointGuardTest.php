@@ -102,4 +102,43 @@ final class EndpointGuardTest extends TestCase
         $this->expectException(SecurityException::class);
         (new EndpointGuard())->prepare("host\x00name", ConnectionOptions::defaults()->allowPrivateAddresses());
     }
+
+    public function testLocalhostVariantsBlocked(): void
+    {
+        $guard = new EndpointGuard();
+        $this->expectException(SecurityException::class);
+        $guard->resolvePublicIps('0.0.0.0');
+    }
+
+    public function testDotLocalhostBlocked(): void
+    {
+        $guard = new EndpointGuard();
+        $this->expectException(SecurityException::class);
+        $this->expectExceptionMessage('Запрещённый адрес (SSRF-guard): app.localhost');
+        $guard->resolvePublicIps('app.localhost');
+    }
+
+    public function testHostPortLowercaseAndExplicitPort(): void
+    {
+        $guard = new EndpointGuard();
+        self::assertSame('example.com', $guard->extractHost('EXAMPLE.COM:2222'));
+        self::assertSame(2222, $guard->extractPort('EXAMPLE.COM:2222'));
+        self::assertSame(22, $guard->extractPort('example.com:abc'));
+    }
+
+    public function testReplaceHostPreservesSchemePathAndPort(): void
+    {
+        $guard = new EndpointGuard();
+        $method = new \ReflectionMethod(EndpointGuard::class, 'replaceHost');
+        $replaced = $method->invoke($guard, 'ssh://Example.COM:2222/extra', '8.8.4.4');
+        self::assertSame('ssh://8.8.4.4:2222/extra', $replaced);
+        $ipv6 = $method->invoke($guard, '[::1]:2200', '2001:db8::5');
+        self::assertSame('[2001:db8::5]:2200', $ipv6);
+    }
+
+    public function testUrlHostLowercaseWithoutBrackets(): void
+    {
+        $guard = new EndpointGuard();
+        self::assertSame('example.com', $guard->extractHost('ssh://EXAMPLE.COM:22'));
+    }
 }

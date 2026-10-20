@@ -18,6 +18,7 @@ use CloudCastle\Ssh\Scp\ScpClient;
 use CloudCastle\Ssh\Ssh;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * @SuppressWarnings("PHPMD.StaticAccess")
@@ -75,5 +76,36 @@ final class SshFacadeTest extends TestCase
         self::assertSame([6], $mapped);
         self::assertSame('payload', $ssh->scp($session)->get('/tmp/x'));
         self::assertSame('pong', $ssh->forward($session)->request('127.0.0.1', 80, 'ping'));
+    }
+
+    public function testLazySlotsReturnSameInstances(): void
+    {
+        $ssh = new Ssh(null, 5);
+        $poolFirst = $ssh->pool();
+        $poolSecond = $ssh->pool();
+        self::assertSame($poolFirst, $poolSecond);
+        self::assertInstanceOf(SessionPool::class, $poolFirst);
+
+        $asyncFirst = $ssh->async();
+        $asyncSecond = $ssh->async();
+        self::assertSame($asyncFirst, $asyncSecond);
+        self::assertInstanceOf(FiberAsyncRuntime::class, $asyncFirst);
+
+        $processFirst = $ssh->processes();
+        $processSecond = $ssh->processes();
+        self::assertSame($processFirst, $processSecond);
+        self::assertInstanceOf(ProcessPool::class, $processFirst);
+
+        $workers = new ReflectionProperty(ProcessPool::class, 'workers');
+        $workers->setAccessible(true);
+        self::assertSame(5, $workers->getValue($processFirst));
+    }
+
+    public function testFactorySlotInjectedIsReused(): void
+    {
+        $factory = $this->createMock(SessionFactoryInterface::class);
+        $ssh = new Ssh($factory);
+        self::assertSame($factory, $ssh->factory());
+        self::assertSame($factory, $ssh->factory());
     }
 }

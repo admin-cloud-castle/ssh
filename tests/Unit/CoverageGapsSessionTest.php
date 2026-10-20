@@ -324,6 +324,127 @@ final class CoverageGapsSessionTest extends TestCase
         }
     }
 
+    public function testNativeSessionServiceAcceptMismatch(): void
+    {
+        putenv('CC_SSH_SERVICE_MISMATCH=1');
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $this->expectException(ConnectionException::class);
+            $this->expectExceptionMessage('SSH service accept mismatch');
+            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+        } finally {
+            putenv('CC_SSH_SERVICE_MISMATCH');
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testNativeSessionBadDhParameter(): void
+    {
+        putenv('CC_SSH_BAD_DH=1');
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $this->expectException(ConnectionException::class);
+            $this->expectExceptionMessage('Некорректный DH параметр f');
+            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+        } finally {
+            putenv('CC_SSH_BAD_DH');
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testNativeSessionDeriveKeyExtendsBeyondOneHash(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $derive = new ReflectionMethod(NativeSession::class, 'deriveKey');
+            $k = SshBinary::mpint("\x01\x02");
+            $h = str_repeat('H', 32);
+            $key = $derive->invoke($session, $k, $h, 'A', 33);
+            self::assertSame(33, strlen($key));
+            $session->disconnect();
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testNativeSessionComputeExchangeHashOrder(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $method = new ReflectionMethod(NativeSession::class, 'computeExchangeHash');
+            $clientKex = chr(20) . str_repeat('a', 40);
+            $serverKex = chr(20) . str_repeat('b', 40);
+            $hostKey = SshBinary::sshString('host');
+            $eBytes = "\x03";
+            $fBytes = "\x04";
+            $k = SshBinary::mpint("\x05");
+            $hash = $method->invoke($session, $clientKex, $serverKex, $hostKey, $eBytes, $fBytes, $k);
+            self::assertSame(32, strlen($hash));
+            $serverId = new \ReflectionProperty(NativeSession::class, 'serverId');
+            $sid = $serverId->getValue($session);
+            self::assertIsString($sid);
+            $clientId = (new \ReflectionClass(NativeSession::class))->getConstant('CLIENT_ID');
+            self::assertIsString($clientId);
+            $expected = hash(
+                'sha256',
+                SshBinary::sshString($clientId)
+                . SshBinary::sshString($sid)
+                . SshBinary::sshString($clientKex)
+                . SshBinary::sshString($serverKex)
+                . SshBinary::sshString($hostKey)
+                . SshBinary::mpint($eBytes)
+                . SshBinary::mpint($fBytes)
+                . $k,
+                true,
+            );
+            self::assertSame($expected, $hash);
+            $session->disconnect();
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testNativeSessionAuthFailureMessagePrefix(): void
+    {
+        putenv('CC_SSH_REJECT_AUTH=1');
+        [$stream, $process] = MockSshPeer::start();
+
+        try {
+            $this->expectException(AuthenticationException::class);
+            $this->expectExceptionMessage('SSH-аутентификация отклонена');
+            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+        } finally {
+            putenv('CC_SSH_REJECT_AUTH');
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testNativeSessionMissingCredentialsMessage(): void
+    {
+        [$stream, $process] = MockSshPeer::start();
+        $ref = new \ReflectionClass(AuthCredentials::class);
+        $ctor = $ref->getConstructor();
+        self::assertNotNull($ctor);
+        $empty = $ref->newInstanceWithoutConstructor();
+        $ctor->invoke($empty, 'u', null, null, null);
+
+        try {
+            $this->expectException(AuthenticationException::class);
+            $this->expectExceptionMessage(
+                'Для SSH нужны AuthCredentials::withPassword или AuthCredentials::withPublicKey',
+            );
+            new NativeSession($stream, $empty);
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
     /**
      * Удаляет файл только внутри sys_get_temp_dir().
      */
@@ -336,6 +457,7 @@ final class CoverageGapsSessionTest extends TestCase
             return;
         }
 
-        unlink($real);
+        // Путь уже проверен realpath + префикс temp dir.
+        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 }

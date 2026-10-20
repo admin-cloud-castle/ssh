@@ -10,9 +10,12 @@ use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Exception\ConnectionException;
 use CloudCastle\Ssh\Security\EndpointGuard;
 use CloudCastle\Ssh\Security\HostKeyVerifier;
+use CloudCastle\Ssh\Exception\SecurityException;
+use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 /**
  * @SuppressWarnings("PHPMD.StaticAccess")
@@ -61,10 +64,55 @@ final class SessionFactoryTest extends TestCase
     {
         $factory = new SessionFactory();
         $this->expectException(ConnectionException::class);
+        $this->expectExceptionMessageMatches('/^TCP к 127\.0\.0\.1:1 не удался: \[\d+\] /');
         $factory->connect(
             '127.0.0.1:1',
             AuthCredentials::withPassword('u', 'p'),
             ConnectionOptions::defaults()->allowPrivateAddresses(),
+        );
+    }
+
+    public function testConnectViaTcpUrlScheme(): void
+    {
+        [$port, $process] = MockSshPeer::listen();
+
+        try {
+            $factory = new SessionFactory();
+            $session = $factory->connect(
+                'tcp://127.0.0.1:' . $port,
+                AuthCredentials::withPassword('u', 'p'),
+                ConnectionOptions::defaults()->allowPrivateAddresses(),
+            );
+            self::assertTrue($session->isConnected());
+            self::assertSame('tcp://127.0.0.1:' . $port, $session->remoteEndpoint());
+            $session->disconnect();
+        } finally {
+            MockSshPeer::stop($process);
+        }
+    }
+
+    public function testBuildTargetPortFallbackAndIpv6Literal(): void
+    {
+        $factory = new SessionFactory();
+        $build = new ReflectionMethod(SessionFactory::class, 'buildTarget');
+        $zeroPort = new PinnedEndpoint('h', 'h', ['1.2.3.4'], 0);
+        $built = $build->invoke($factory, $zeroPort, 'h');
+        self::assertSame(22, $built[1]);
+        self::assertSame('tcp://1.2.3.4:22', $built[2]);
+
+        $tcp = new ReflectionMethod(SessionFactory::class, 'tcpTarget');
+        self::assertSame('tcp://[2001:db8::1]:22', $tcp->invoke($factory, '2001:db8::1', 22));
+        self::assertSame('tcp://host.example:9', $tcp->invoke($factory, 'host.example', 9));
+    }
+
+    public function testConnectRejectsBlockedPrivateWithoutAllow(): void
+    {
+        $factory = new SessionFactory();
+        $this->expectException(SecurityException::class);
+        $factory->connect(
+            '127.0.0.1:22',
+            AuthCredentials::withPassword('u', 'p'),
+            ConnectionOptions::defaults(),
         );
     }
 }

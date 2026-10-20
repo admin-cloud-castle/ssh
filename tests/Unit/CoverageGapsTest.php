@@ -159,9 +159,7 @@ final class CoverageGapsTest extends TestCase
         fclose($left);
         $body = $pool->readWorkerPayload($right);
         fclose($right);
-        // Тело от ProcessPool::writeWorkerResult (не user input).
-        // nosemgrep: php.lang.security.unserialize-use.unserialize-use
-        self::assertSame(['ok' => 1], unserialize($body, ['allowed_classes' => false]));
+        self::assertSame(['ok' => 1], json_decode($body, true));
 
         $forked = new ProcessPool(2, false);
         $forkOut = iterator_to_array($forked->map([4, 5], static fn (int $v): int => $v * 3), false);
@@ -289,7 +287,8 @@ final class CoverageGapsTest extends TestCase
         $realPath = realpath($path);
 
         if ($tempRoot !== false && $realPath !== false && str_starts_with($realPath, $tempRoot)) {
-            unlink($realPath);
+            // Путь уже проверен realpath + префикс temp dir.
+            unlink($realPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
         }
         self::assertSame('rsa-sha2-256', $parts['algorithm']);
 
@@ -361,6 +360,7 @@ final class CoverageGapsTest extends TestCase
             return;
         }
 
-        unlink($real);
+        // Путь уже проверен realpath + префикс temp dir.
+        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 }

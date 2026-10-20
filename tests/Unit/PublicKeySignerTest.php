@@ -44,14 +44,21 @@ final class PublicKeySignerTest extends TestCase
         $signer = new PublicKeySigner();
         $parts = $signer->load($auth);
         self::assertSame('rsa-sha2-256', $parts['algorithm']);
-        $req = $signer->buildRequest(str_repeat('a', 32), 'alice', $parts);
+        $sessionId = str_repeat('a', 32);
+        $req = $signer->buildRequest($sessionId, 'alice', $parts);
         self::assertSame(50, ord($req[0]));
+        $offset = 1;
+        self::assertSame('alice', SshBinary::readString($req, $offset));
+        self::assertSame('ssh-connection', SshBinary::readString($req, $offset));
+        self::assertSame('publickey', SshBinary::readString($req, $offset));
+        self::assertSame("\x01", $req[$offset]);
     }
 
     public function testInvalidKeyThrows(): void
     {
         $signer = new PublicKeySigner();
         $this->expectException(ConnectionException::class);
+        $this->expectExceptionMessageMatches('/^Не удалось загрузить SSH private key:/');
         $signer->load(AuthCredentials::withPublicKey('u', 'not-a-key'));
     }
 
@@ -67,6 +74,7 @@ final class PublicKeySignerTest extends TestCase
             return;
         }
 
-        unlink($real);
+        // Путь уже проверен realpath + префикс temp dir.
+        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 }

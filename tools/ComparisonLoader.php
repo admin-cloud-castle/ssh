@@ -31,16 +31,8 @@ final class ComparisonLoader
             throw new ComparisonCatalogException('comparison-packages.json: неполная структура');
         }
 
-        $order = [];
-
-        foreach (array_keys($orderRaw) as $index) {
-            if (isset($orderRaw[$index]) && is_string($orderRaw[$index])) {
-                $order[] = $orderRaw[$index];
-            }
-        }
-
         return [
-            'order' => $order,
+            'order' => self::stringList($orderRaw),
             'labels' => self::stringMap($labelsRaw),
             'composer' => self::stringMap($composerRaw),
             'classes' => self::stringMap($classesRaw),
@@ -54,28 +46,7 @@ final class ComparisonLoader
      */
     public static function features(): array
     {
-        $raw = self::loadJsonList('comparison-features.json');
-        $rows = [];
-
-        foreach (array_keys($raw) as $index) {
-            if (!isset($raw[$index]) || !is_array($raw[$index])) {
-                continue;
-            }
-
-            $feature = $raw[$index]['feature'] ?? null;
-            $packages = $raw[$index]['packages'] ?? null;
-
-            if (!is_string($feature) || !is_array($packages)) {
-                continue;
-            }
-
-            $rows[] = [
-                'feature' => $feature,
-                'packages' => self::boolMap($packages),
-            ];
-        }
-
-        return $rows;
+        return self::namedBoolRows('comparison-features.json', 'feature');
     }
 
     /**
@@ -85,28 +56,7 @@ final class ComparisonLoader
      */
     public static function security(): array
     {
-        $raw = self::loadJsonList('comparison-security.json');
-        $rows = [];
-
-        foreach (array_keys($raw) as $index) {
-            if (!isset($raw[$index]) || !is_array($raw[$index])) {
-                continue;
-            }
-
-            $standard = $raw[$index]['standard'] ?? null;
-            $packages = $raw[$index]['packages'] ?? null;
-
-            if (!is_string($standard) || !is_array($packages)) {
-                continue;
-            }
-
-            $rows[] = [
-                'standard' => $standard,
-                'packages' => self::boolMap($packages),
-            ];
-        }
-
-        return $rows;
+        return self::namedBoolRows('comparison-security.json', 'standard');
     }
 
     /**
@@ -116,29 +66,7 @@ final class ComparisonLoader
      */
     public static function quality(): array
     {
-        /** @var list<array{metric: string, packages: array<string, bool>}> $rows */
-        $rows = [];
-        $raw = self::loadJsonList('comparison-quality.json');
-
-        foreach (array_keys($raw) as $index) {
-            if (!isset($raw[$index]) || !is_array($raw[$index])) {
-                continue;
-            }
-
-            $metric = $raw[$index]['metric'] ?? null;
-            $packages = $raw[$index]['packages'] ?? null;
-
-            if (!is_string($metric) || !is_array($packages)) {
-                continue;
-            }
-
-            $rows[] = [
-                'metric' => $metric,
-                'packages' => self::boolMap($packages),
-            ];
-        }
-
-        return $rows;
+        return self::namedBoolRows('comparison-quality.json', 'metric');
     }
 
     /**
@@ -150,7 +78,7 @@ final class ComparisonLoader
     {
         /** @var list<array{metric: string, benches: array<string, string|null>}> $rows */
         $rows = [];
-        $raw = self::loadJsonList('comparison-perf.json');
+        $raw = self::loadJson('comparison-perf.json');
 
         foreach (array_keys($raw) as $index) {
             if (!isset($raw[$index]) || !is_array($raw[$index])) {
@@ -164,21 +92,9 @@ final class ComparisonLoader
                 continue;
             }
 
-            /** @var array<string, string|null> $benches */
-            $benches = [];
-
-            foreach (array_keys($benchesRaw) as $key) {
-                if (!is_string($key)) {
-                    continue;
-                }
-
-                $benchKey = $benchesRaw[$key] ?? null;
-                $benches[$key] = is_string($benchKey) ? $benchKey : null;
-            }
-
             $rows[] = [
                 'metric' => $metric,
-                'benches' => $benches,
+                'benches' => self::nullableStringMap($benchesRaw),
             ];
         }
 
@@ -194,7 +110,7 @@ final class ComparisonLoader
     {
         /** @var list<array{metric: string, threshold: string, packages: array<string, bool>}> $rows */
         $rows = [];
-        $raw = self::loadJsonList('comparison-thresholds.json');
+        $raw = self::loadJson('comparison-thresholds.json');
 
         foreach (array_keys($raw) as $index) {
             if (!isset($raw[$index]) || !is_array($raw[$index])) {
@@ -212,6 +128,37 @@ final class ComparisonLoader
             $rows[] = [
                 'metric' => $metric,
                 'threshold' => $threshold,
+                'packages' => self::boolMap($packages),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Строки вида {nameKey: string, packages: bool-map} из JSON-списка.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function namedBoolRows(string $filename, string $nameKey): array
+    {
+        $rows = [];
+        $raw = self::loadJson($filename);
+
+        foreach (array_keys($raw) as $index) {
+            if (!isset($raw[$index]) || !is_array($raw[$index])) {
+                continue;
+            }
+
+            $name = $raw[$index][$nameKey] ?? null;
+            $packages = $raw[$index]['packages'] ?? null;
+
+            if (!is_string($name) || !is_array($packages)) {
+                continue;
+            }
+
+            $rows[] = [
+                $nameKey => $name,
                 'packages' => self::boolMap($packages),
             ];
         }
@@ -241,11 +188,21 @@ final class ComparisonLoader
     }
 
     /**
-     * @return array<array-key, mixed>
+     * @param array<array-key, mixed> $input
+     *
+     * @return list<string>
      */
-    private static function loadJsonList(string $filename): array
+    private static function stringList(array $input): array
     {
-        return self::loadJson($filename);
+        $out = [];
+
+        foreach (array_keys($input) as $index) {
+            if (isset($input[$index]) && is_string($input[$index])) {
+                $out[] = $input[$index];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -265,6 +222,27 @@ final class ComparisonLoader
             if (isset($input[$key]) && is_string($input[$key])) {
                 $out[$key] = $input[$key];
             }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<array-key, mixed> $input
+     *
+     * @return array<string, string|null>
+     */
+    private static function nullableStringMap(array $input): array
+    {
+        $out = [];
+
+        foreach (array_keys($input) as $key) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $value = $input[$key] ?? null;
+            $out[$key] = is_string($value) ? $value : null;
         }
 
         return $out;

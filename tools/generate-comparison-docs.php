@@ -25,7 +25,11 @@ if (!is_file($avgPath)) {
 }
 
 if (!is_file($memoryAvgPath)) {
-    fwrite(STDERR, "нет {$memoryAvgPath} — сначала: php -d xdebug.mode=off tools/benchmark-memory.php && php tools/aggregate-memory-json.php\n");
+    fwrite(
+        STDERR,
+        "нет {$memoryAvgPath} — сначала: php -d xdebug.mode=off tools/benchmark-memory.php"
+        . " && php tools/aggregate-memory-json.php\n",
+    );
     exit(1);
 }
 
@@ -223,7 +227,8 @@ foreach (ComparisonLoader::perf() as $perfRow) {
     $perfBody[] = $cells;
 }
 
-$perfIntro = 'Методика: `hrtime(true)` без Xdebug, прогрев + усреднение; `—` — нет сопоставимого API '
+$perfIntro = 'Методика: `hrtime(true)` без Xdebug, прогрев + усреднение; '
+    . '`—` — нет сопоставимого API '
     . "или пакет/расширение недоступны в окружении бенчмарка.\n\n";
 
 $perfTable = $perfIntro . ComparisonMarkdown::table(
@@ -231,8 +236,10 @@ $perfTable = $perfIntro . ComparisonMarkdown::table(
     $perfBody,
 );
 
-$memoryIntro = 'Методика: `memory_get_usage(false)` (emalloc) минус baseline пустого цикла — '
-    . "аллокации **пакета** под нагрузкой, не RSS/арена всего процесса.\n\n";
+$memoryIntro = 'Методика: `memory_get_usage(false)` (emalloc) '
+    . 'минус baseline пустого цикла — '
+    . "аллокации **пакета** под нагрузкой, "
+    . "не RSS/арена всего процесса.\n\n";
 
 $memoryTable = $memoryIntro . ComparisonMarkdown::table(
     array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
@@ -295,7 +302,8 @@ $leakVerdict = static function (?int $bytes): string {
     return 'leak (' . sprintf('%.1f KiB', $bytes / 1024) . ')';
 };
 
-$leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: остаточный прирост emalloc '
+$leaksIntro = 'После нагрузки и `unset`+`gc_collect_cycles`+`gc_mem_caches`: '
+    . 'остаточный прирост emalloc '
     . "пакета должен быть **0 B** (любой прирост = leak).\n\n";
 
 $memoryLeaksTable = $leaksIntro . ComparisonMarkdown::table(
@@ -391,7 +399,8 @@ $boolMatrixTable = static function (
 
 $qualityTable = $boolMatrixTable('Метрика качества', ComparisonLoader::quality(), 'metric');
 
-// SECURITY: краткая матрица security-фич из FEATURES-пересечения (SSRF / host-key / timing-safe).
+// SECURITY: краткая матрица security-фич из FEATURES
+// (SSRF / host-key / timing-safe).
 $securityFeatureRows = [
     [
         'feature' => 'SSRF-guard + DNS-pinning по умолчанию',

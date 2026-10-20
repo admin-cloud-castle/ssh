@@ -149,6 +149,7 @@ final class MockSshPeer
             return;
         }
 
-        unlink($real);
+        // Путь уже проверен realpath + префикс temp dir.
+        unlink($real); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 }
