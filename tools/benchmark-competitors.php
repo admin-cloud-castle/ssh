@@ -15,8 +15,8 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use CloudCastle\Ssh\Contract\AuthCredentials;
 use CloudCastle\Ssh\Contract\ConnectionOptions;
-use CloudCastle\Ssh\Ssh;
 use CloudCastle\Ssh\Security\EndpointGuard;
+use CloudCastle\Ssh\Ssh;
 
 $iterations = 3000;
 $warm = 50;
@@ -91,7 +91,8 @@ $benches = [
         class_exists('League\\Flysystem\\PhpseclibV3\\SftpAdapter');
     }, $iterations, $warm),
     'ext_ssh2_function_exists' => static fn (): array => $measure(static function (): void {
-        function_exists('ssh2_connect');
+        $exists = function_exists('ssh2_connect');
+        unset($exists);
     }, $iterations, $warm),
 ];
 

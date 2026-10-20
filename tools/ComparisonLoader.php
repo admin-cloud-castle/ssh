@@ -85,7 +85,28 @@ final class ComparisonLoader
      */
     public static function security(): array
     {
-        return self::boolRows('comparison-security.json', 'standard');
+        $raw = self::loadJsonList('comparison-security.json');
+        $rows = [];
+
+        foreach (array_keys($raw) as $index) {
+            if (!isset($raw[$index]) || !is_array($raw[$index])) {
+                continue;
+            }
+
+            $standard = $raw[$index]['standard'] ?? null;
+            $packages = $raw[$index]['packages'] ?? null;
+
+            if (!is_string($standard) || !is_array($packages)) {
+                continue;
+            }
+
+            $rows[] = [
+                'standard' => $standard,
+                'packages' => self::boolMap($packages),
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -113,35 +134,6 @@ final class ComparisonLoader
 
             $rows[] = [
                 'metric' => $metric,
-                'packages' => self::boolMap($packages),
-            ];
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @return list<array{standard: string, packages: array<string, bool>}>
-     */
-    private static function boolRows(string $filename, string $labelKey): array
-    {
-        $raw = self::loadJsonList($filename);
-        $rows = [];
-
-        foreach (array_keys($raw) as $index) {
-            if (!isset($raw[$index]) || !is_array($raw[$index])) {
-                continue;
-            }
-
-            $label = $raw[$index][$labelKey] ?? null;
-            $packages = $raw[$index]['packages'] ?? null;
-
-            if (!is_string($label) || !is_array($packages)) {
-                continue;
-            }
-
-            $rows[] = [
-                $labelKey => $label,
                 'packages' => self::boolMap($packages),
             ];
         }

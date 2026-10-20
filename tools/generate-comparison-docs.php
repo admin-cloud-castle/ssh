@@ -66,9 +66,15 @@ $phpVersions = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
 if (isset($avg['php_versions']) && is_array($avg['php_versions'])) {
     $parts = [];
 
-    foreach ($avg['php_versions'] as $version) {
-        if (is_string($version) || is_int($version) || is_float($version)) {
-            $parts[] = (string) $version;
+    foreach (array_keys($avg['php_versions']) as $versionKey) {
+        if (!isset($avg['php_versions'][$versionKey])) {
+            continue;
+        }
+
+        if (is_string($avg['php_versions'][$versionKey])) {
+            $parts[] = $avg['php_versions'][$versionKey];
+        } elseif (is_int($avg['php_versions'][$versionKey]) || is_float($avg['php_versions'][$versionKey])) {
+            $parts[] = (string) $avg['php_versions'][$versionKey];
         }
     }
 
@@ -140,21 +146,21 @@ $pkgHeader = [
     'ext-ssh2',
 ];
 
+$perfConstructRow = [
+    'Конструкция клиента (ns/op, avg PHP ' . $phpVersions . ')',
+    $fmtNs($constructNs['ours']),
+    $fmtNs($constructNs['phpseclib/phpseclib']),
+    $fmtNs($constructNs['spatie/ssh']),
+    $fmtNs($constructNs['herzult/php-ssh']),
+    $fmtNs($constructNs['league/flysystem-sftp-v3']),
+    $fmtNs($constructNs['ext-ssh2']),
+    ComparisonMarkdown::minWinner($constructNs, $order, $labels, $productName),
+];
+
 $perfTable = ComparisonMarkdown::table(
     array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
     [
-        array_merge(
-            ['Конструкция клиента (ns/op, avg PHP ' . $phpVersions . ')'],
-            [
-                $fmtNs($constructNs['ours']),
-                $fmtNs($constructNs['phpseclib/phpseclib']),
-                $fmtNs($constructNs['spatie/ssh']),
-                $fmtNs($constructNs['herzult/php-ssh']),
-                $fmtNs($constructNs['league/flysystem-sftp-v3']),
-                $fmtNs($constructNs['ext-ssh2']),
-            ],
-            [ComparisonMarkdown::minWinner($constructNs, $order, $labels, $productName)],
-        ),
+        $perfConstructRow,
         [
             'AuthCredentials::withPassword (ns/op)',
             $fmtNs($ns('ours_credentials_password')),
@@ -178,34 +184,65 @@ $perfTable = ComparisonMarkdown::table(
     ],
 );
 
+$memoryConstructRow = [
+    'Δ памяти на конструкцию клиента',
+    $fmtMem($constructMem['ours']),
+    $fmtMem($constructMem['phpseclib/phpseclib']),
+    $fmtMem($constructMem['spatie/ssh']),
+    $fmtMem($constructMem['herzult/php-ssh']),
+    $fmtMem($constructMem['league/flysystem-sftp-v3']),
+    $fmtMem($constructMem['ext-ssh2']),
+    ComparisonMarkdown::minWinner($constructMem, $order, $labels, $productName),
+];
+
 $memoryTable = ComparisonMarkdown::table(
     array_merge(['Метрика'], $pkgHeader, ['🏆 Победитель']),
-    [
-        array_merge(
-            ['Δ памяти на конструкцию клиента'],
-            [
-                $fmtMem($constructMem['ours']),
-                $fmtMem($constructMem['phpseclib/phpseclib']),
-                $fmtMem($constructMem['spatie/ssh']),
-                $fmtMem($constructMem['herzult/php-ssh']),
-                $fmtMem($constructMem['league/flysystem-sftp-v3']),
-                $fmtMem($constructMem['ext-ssh2']),
-            ],
-            [ComparisonMarkdown::minWinner($constructMem, $order, $labels, $productName)],
-        ),
-    ],
+    [$memoryConstructRow],
 );
 
+/**
+ * @param list<array<string, mixed>> $rows
+ */
 $boolMatrixTable = static function (
     string $firstCol,
     array $rows,
     string $labelKey,
-) use ($order, $labels, $productName, $pkgHeader): string {
+) use (
+    $order,
+    $labels,
+    $productName,
+    $pkgHeader
+): string {
+    /** @var list<list<string>> $body */
     $body = [];
 
     foreach ($rows as $row) {
-        $flags = $row['packages'];
-        $cells = [$row[$labelKey]];
+        if (!is_array($row)) {
+            continue;
+        }
+
+        $flagsRaw = $row['packages'] ?? null;
+
+        if (!is_array($flagsRaw)) {
+            continue;
+        }
+
+        /** @var array<string, bool> $flags */
+        $flags = [];
+
+        foreach (array_keys($flagsRaw) as $flagKey) {
+            if (!is_string($flagKey)) {
+                continue;
+            }
+
+            $flags[$flagKey] = ($flagsRaw[$flagKey] ?? false) === true;
+        }
+
+        $cells = [''];
+
+        if (isset($row[$labelKey]) && is_string($row[$labelKey])) {
+            $cells = [$row[$labelKey]];
+        }
 
         foreach ($order as $key) {
             $cells[] = ($flags[$key] ?? false) ? '✅' : '❌';
@@ -283,10 +320,30 @@ foreach ($targets as $rel) {
     $path = $root . '/' . $rel;
     $content = is_file($path) ? (string) file_get_contents($path) : '';
     $content = ComparisonMarkdown::ensureComparisonScaffold($content);
-    $content = ComparisonMarkdown::replaceBlock($content, '<!-- PERF:START -->', '<!-- PERF:END -->', $perfTable);
-    $content = ComparisonMarkdown::replaceBlock($content, '<!-- MEMORY:START -->', '<!-- MEMORY:END -->', $memoryTable);
-    $content = ComparisonMarkdown::replaceBlock($content, '<!-- QUALITY:START -->', '<!-- QUALITY:END -->', $qualityTable);
-    $content = ComparisonMarkdown::replaceBlock($content, '<!-- SECURITY:START -->', '<!-- SECURITY:END -->', $securityTable);
+    $content = ComparisonMarkdown::replaceBlock(
+        $content,
+        '<!-- PERF:START -->',
+        '<!-- PERF:END -->',
+        $perfTable,
+    );
+    $content = ComparisonMarkdown::replaceBlock(
+        $content,
+        '<!-- MEMORY:START -->',
+        '<!-- MEMORY:END -->',
+        $memoryTable,
+    );
+    $content = ComparisonMarkdown::replaceBlock(
+        $content,
+        '<!-- QUALITY:START -->',
+        '<!-- QUALITY:END -->',
+        $qualityTable,
+    );
+    $content = ComparisonMarkdown::replaceBlock(
+        $content,
+        '<!-- SECURITY:START -->',
+        '<!-- SECURITY:END -->',
+        $securityTable,
+    );
     $content = ComparisonMarkdown::replaceBlock(
         $content,
         '<!-- SECURITY_STANDARDS:START -->',

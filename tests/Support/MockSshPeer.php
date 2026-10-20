@@ -78,15 +78,14 @@ final class MockSshPeer
         $deadline = microtime(true) + 5.0;
         $errno = 0;
         $errstr = '';
-        $stream = false;
 
         while (microtime(true) < $deadline) {
-            $stream = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 1.0);
+            $candidate = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 1.0);
 
-            if ($stream !== false) {
-                stream_set_timeout($stream, 10);
+            if (is_resource($candidate)) {
+                stream_set_timeout($candidate, 10);
 
-                return $stream;
+                return $candidate;
             }
 
             usleep(50_000);
