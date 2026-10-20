@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Exception;
 
 /**
- * Блокировка SSRF/DNS-rebinding или иной политики безопасности.
+ * Нарушение политики безопасности: SSRF-guard, DNS-rebinding, запрещённый endpoint.
  */
 final class SecurityException extends SshException
 {

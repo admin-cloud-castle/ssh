@@ -5,16 +5,26 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Async;
 
 /**
- * Абстракция stream_select для тестируемости и MSI.
+ * Абстракция stream_select для подмены в тестах и изоляции MSI-мутаций.
  */
 interface StreamSelectorInterface
 {
     /**
-     * Обёртка над stream_select с секундами и микросекундами.
+     * Ожидает готовности наборов stream (обёртка над stream_select).
      *
-     * @param array<int, resource>|null $read
-     * @param array<int, resource>|null $write
-     * @param array<int, resource>|null $except
+     * Массивы передаются по ссылке и могут быть изменены реализацией (как у native select).
+     *
+     * @param array<int, resource>|null $read         Корзина на чтение или null
+     * @param array<int, resource>|null $write        Корзина на запись или null
+     * @param array<int, resource>|null $except       Корзина exceptional или null
+     * @param int                       $seconds      Целые секунды таймаута (≥0)
+     * @param int                       $microseconds Дробная часть таймаута в микросекундах (0…999999)
+     *
+     * @param-out array<array-key, resource>|null $read
+     * @param-out array<array-key, resource>|null $write
+     * @param-out array<array-key, resource>|null $except
+     *
+     * @return int|false Число готовых дескрипторов, 0 при таймауте, false при ошибке
      */
     public function select(
         ?array &$read,

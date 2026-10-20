@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Process;
 
 /**
- * Пул worker-процессов (pcntl_fork) для CPU-bound задач поверх SSH-операций.
+ * Пул worker-процессов (pcntl_fork + stream_socket_pair) для параллельных CPU-bound задач.
+ *
+ * При отсутствии pcntl или `$forceSequential=true` выполняет map последовательно в текущем процессе.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.CyclomaticComplexity")
@@ -18,25 +20,31 @@ namespace CloudCastle\Ssh\Process;
 final class ProcessPool
 {
     /**
-     * @param int  $workers         Число параллельных процессов
-     * @param bool $forceSequential Принудительно без fork (тесты / окружения без pcntl)
+     * Создаёт пул с заданной параллельностью.
+     *
+     * @param int  $workers         Число параллельных worker-процессов (≥1 после max в mapForked)
+     * @param bool $forceSequential true — всегда последовательный режим (тесты / без pcntl)
      */
     public function __construct(
+        /** Число параллельных worker-процессов. @var int */
         private readonly int $workers = 2,
+        /** Принудительный последовательный режим без fork. @var bool */
         private readonly bool $forceSequential = false,
     ) {
     }
 
     /**
-     * Параллельно применяет callable к каждому элементу (генератор результатов).
+     * Применяет $worker к каждому элементу; результаты отдаёт генератором.
+     *
+     * Порядок результатов при fork не гарантирован; при sequential — порядок $items.
      *
      * @template TItem
      * @template TResult
      *
-     * @param list<TItem>             $items
-     * @param callable(TItem):TResult $worker
+     * @param list<TItem>             $items  Входные элементы; [] — пустой генератор
+     * @param callable(TItem):TResult $worker Чистая функция элемента → результат (должен сериализоваться)
      *
-     * @return \Generator<int, TResult>
+     * @return \Generator<int, TResult> Поток результатов
      */
     public function map(array $items, callable $worker): \Generator
     {
@@ -56,9 +64,10 @@ final class ProcessPool
     }
 
     /**
-     * Пишет length-prefixed serialize(result) в stream (для child и тестов).
+     * Пишет length-prefixed serialize($result) в stream (формат child→parent).
      *
-     * @param resource $stream
+     * @param resource $stream Открытый конец socket pair (на запись)
+     * @param mixed    $result Значение для serialize (допустимые классы — любые)
      */
     public function writeWorkerResult(mixed $stream, mixed $result): void
     {
@@ -67,9 +76,11 @@ final class ProcessPool
     }
 
     /**
-     * Читает length-prefixed payload от worker.
+     * Читает length-prefixed payload от worker; при обрыве возвращает частичное/пустое тело.
      *
-     * @param resource $stream
+     * @param resource $stream Открытый конец socket pair (на чтение)
+     *
+     * @return string Сырые байты тела без length-префикса; '' при коротком заголовке
      */
     public function readWorkerPayload(mixed $stream): string
     {
@@ -101,7 +112,9 @@ final class ProcessPool
     }
 
     /**
-     * Доступен ли pcntl_fork + waitpid.
+     * Проверяет доступность pcntl_fork и pcntl_waitpid.
+     *
+     * @return bool true если оба символа определены
      */
     private function supportsFork(): bool
     {
@@ -109,13 +122,13 @@ final class ProcessPool
     }
 
     /**
-     * Параллельный map через pcntl_fork + stream_socket_pair.
+     * Параллельный map через fork; при сбое pair/fork падает в inline yield.
      *
      * @template TItem
      * @template TResult
      *
-     * @param list<TItem>             $items
-     * @param callable(TItem):TResult $worker
+     * @param list<TItem>             $items  Непустой список элементов
+     * @param callable(TItem):TResult $worker Worker-функция
      *
      * @return \Generator<int, TResult>
      */
@@ -168,12 +181,12 @@ final class ProcessPool
     }
 
     /**
-     * Забирает один завершённый worker или ждёт.
+     * Забирает один завершённый worker (WNOHANG) или ждёт usleep при отсутствии готовых.
      *
-     * @param array<int, true>     $running
-     * @param array<int, resource> $sockets
+     * @param array<int, true>     $running Карта pid → true активных детей
+     * @param array<int, resource> $sockets Карта pid → parent socket
      *
-     * @return \Generator<int, mixed>
+     * @return \Generator<int, mixed> 0 или 1 unserialize-результат
      */
     private function reapFinished(array &$running, array &$sockets): \Generator
     {

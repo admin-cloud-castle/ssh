@@ -20,33 +20,58 @@ use CloudCastle\Ssh\Process\ProcessPool;
 use CloudCastle\Ssh\Scp\ScpClient;
 
 /**
- * Публичный фасад cloud-castle/ssh: sync/async, пул, multiprocess, SCP, forward.
+ * Публичный фасад cloud-castle/ssh: sync connect, пул, Fibers-async, multiprocess, SCP, forward.
  *
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
 final class Ssh implements SshInterface
 {
     /**
-     * Версия пакета.
+     * SemVer-версия пакета (совпадает с релизным тегом мажор.минор.патч при релизе).
+     *
+     * @var string
      */
     public const VERSION = '1.0.0';
 
+    /**
+     * Ленивый слот пула сессий.
+     *
+     * @var SessionPoolInterface|null
+     */
     private ?SessionPoolInterface $poolSlot = null;
 
+    /**
+     * Ленивый слот async-рантайма.
+     *
+     * @var AsyncRuntimeInterface|null
+     */
     private ?AsyncRuntimeInterface $asyncSlot = null;
 
+    /**
+     * Ленивый слот пула процессов.
+     *
+     * @var ProcessPool|null
+     */
     private ?ProcessPool $processSlot = null;
 
     /**
-     * @param SessionFactoryInterface|null $factorySlot Внешняя фабрика (тесты/DI)
-     * @param int                          $workers Число process-workers
+     * Создаёт фасад; фабрику можно подменить для тестов/DI.
+     *
+     * @param SessionFactoryInterface|null $factorySlot Внешняя фабрика или null (Native SessionFactory)
+     * @param int                          $workers     Число worker-процессов для ProcessPool
      */
-    public function __construct(private ?SessionFactoryInterface $factorySlot = null, private readonly int $workers = 2)
-    {
+    public function __construct(
+        /** Слот фабрики сессий; null — ленивое создание SessionFactory. @var SessionFactoryInterface|null */
+        private ?SessionFactoryInterface $factorySlot = null,
+        /** Число worker-процессов ProcessPool (≥1 рекомендуется). @var int */
+        private readonly int $workers = 2,
+    ) {
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает Composer-имя пакета.
+     *
+     * @return string Всегда `cloud-castle/ssh`
      */
     #[\Override]
     public function name(): string
@@ -55,7 +80,13 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Синхронно подключается к endpoint через фабрику фасада.
+     *
+     * @param string                 $endpoint Цель SSH
+     * @param AuthCredentials        $auth     Учётные данные
+     * @param ConnectionOptions|null $options  Опции или null
+     *
+     * @return SessionInterface Активная сессия
      */
     #[\Override]
     public function connect(
@@ -67,7 +98,9 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает фабрику сессий (создаёт SessionFactory при первом обращении).
+     *
+     * @return SessionFactoryInterface Фабрика connect()
      */
     #[\Override]
     public function factory(): SessionFactoryInterface
@@ -76,7 +109,9 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает пул idle-сессий (создаёт SessionPool при первом обращении).
+     *
+     * @return SessionPoolInterface Пул над factory()
      */
     #[\Override]
     public function pool(): SessionPoolInterface
@@ -85,7 +120,9 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает Fiber async-рантайм (создаёт FiberAsyncRuntime при первом обращении).
+     *
+     * @return AsyncRuntimeInterface Рантайм awaitReadable/awaitWritable
      */
     #[\Override]
     public function async(): AsyncRuntimeInterface
@@ -94,7 +131,9 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * Пул процессов для параллельных задач.
+     * Возвращает пул процессов для параллельных задач (создаёт при первом обращении).
+     *
+     * @return ProcessPool Пул с concurrency = $workers
      */
     public function processes(): ProcessPool
     {
@@ -102,7 +141,11 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * SCP-клиент над сессией.
+     * Создаёт SCP-клиент над переданной сессией.
+     *
+     * @param SessionInterface $session Активная сессия
+     *
+     * @return ScpClient Клиент get/put
      */
     public function scp(SessionInterface $session): ScpClient
     {
@@ -110,7 +153,11 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * Локальный port-forward helper.
+     * Создаёт helper локального port-forward над сессией.
+     *
+     * @param SessionInterface $session Активная сессия
+     *
+     * @return LocalPortForward Клиент request()
      */
     public function forward(SessionInterface $session): LocalPortForward
     {
@@ -118,9 +165,11 @@ final class Ssh implements SshInterface
     }
 
     /**
-     * Завершает работу с ошибкой пакета.
+     * Прерывает работу фасада, выбрасывая доменное исключение пакета.
      *
-     * @throws SshException
+     * @param string $message Текст ошибки для вызывающего кода
+     *
+     * @throws SshException Всегда
      */
     public function abort(string $message): never
     {

@@ -9,13 +9,15 @@ use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Contract\SessionFactoryInterface;
 use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Exception\ConnectionException;
+use CloudCastle\Ssh\Exception\HostKeyException;
+use CloudCastle\Ssh\Exception\SecurityException;
 use CloudCastle\Ssh\Security\EndpointGuard;
 use CloudCastle\Ssh\Security\HostKeyVerifier;
 use CloudCastle\Ssh\Security\PinnedEndpoint;
 use CloudCastle\Ssh\Session\NativeSession;
 
 /**
- * Фабрика нативных SSH-сессий с SSRF-guard и host-key verify.
+ * Фабрика нативных SSH-сессий: SSRF-guard, TCP connect, handshake/auth, host-key verify.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
@@ -26,17 +28,31 @@ use CloudCastle\Ssh\Session\NativeSession;
 final class SessionFactory implements SessionFactoryInterface
 {
     /**
-     * @param EndpointGuard   $guard    Проверка endpoint / DNS-pinning
-     * @param HostKeyVerifier $hostKeys Проверка host key
+     * Создаёт фабрику с заданными guard и verifier (удобно для тестов/DI).
+     *
+     * @param EndpointGuard   $guard    Проверка endpoint и DNS-pinning
+     * @param HostKeyVerifier $hostKeys Проверка fingerprint host key
      */
     public function __construct(
+        /** SSRF-guard и DNS-pinning. @var EndpointGuard */
         private readonly EndpointGuard $guard = new EndpointGuard(),
+        /** Проверка fingerprint host key. @var HostKeyVerifier */
         private readonly HostKeyVerifier $hostKeys = new HostKeyVerifier(),
     ) {
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает TCP, поднимает NativeSession и проверяет host key.
+     *
+     * @param string                 $endpoint Цель connect
+     * @param AuthCredentials        $auth     Password или publickey
+     * @param ConnectionOptions|null $options  Опции; null — ConnectionOptions::defaults()
+     *
+     * @return SessionInterface Готовая сессия с привязанным endpoint
+     *
+     * @throws ConnectionException При ошибке TCP или протокола
+     * @throws SecurityException   При срабатывании SSRF-guard
+     * @throws HostKeyException    При отклонении host key
      */
     #[\Override]
     public function connect(
@@ -71,9 +87,12 @@ final class SessionFactory implements SessionFactoryInterface
     }
 
     /**
-     * Собирает host/port/target для stream_socket_client.
+     * Собирает host, port и tcp:// target из PinnedEndpoint.
      *
-     * @return array{0: string, 1: int, 2: string}
+     * @param PinnedEndpoint $pinned   Результат EndpointGuard::prepare
+     * @param string         $endpoint Исходный endpoint (fallback для пустого host)
+     *
+     * @return array{0: string, 1: int, 2: string} [host, port, tcpTarget]
      */
     private function buildTarget(PinnedEndpoint $pinned, string $endpoint): array
     {
@@ -100,9 +119,13 @@ final class SessionFactory implements SessionFactoryInterface
     }
 
     /**
-     * Target из URL-подобного pinned endpoint.
+     * Строит target из URL-подобного connectEndpoint (parse_url).
      *
-     * @return array{0: string, 1: int, 2: string}
+     * @param string $connectEndpoint Строка со схемой `://`
+     * @param string $fallbackHost    Host при неудачном parse
+     * @param int    $fallbackPort    Port при отсутствии в URL
+     *
+     * @return array{0: string, 1: int, 2: string} [host, port, tcpTarget]
      */
     private function targetFromUrl(string $connectEndpoint, string $fallbackHost, int $fallbackPort): array
     {
@@ -124,7 +147,12 @@ final class SessionFactory implements SessionFactoryInterface
     }
 
     /**
-     * Формирует tcp:// URI с учётом IPv6.
+     * Формирует URI `tcp://host:port` с квадратными скобками для IPv6.
+     *
+     * @param string $host Имя или IP (скобки снимаются, если уже были)
+     * @param int    $port TCP-порт
+     *
+     * @return string Адрес для stream_socket_client
      */
     private function tcpTarget(string $host, int $port): string
     {

@@ -9,7 +9,7 @@ use CloudCastle\Ssh\Exception\TimeoutException;
 use Fiber;
 
 /**
- * Асинхронный рантайм на Fiber + stream_select без внешних зависимостей.
+ * Кооперативный async-рантайм: Fiber + ожидание готовности stream через StreamSelectorInterface.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.ShortVariable")
@@ -19,10 +19,17 @@ use Fiber;
  */
 final class FiberAsyncRuntime implements AsyncRuntimeInterface
 {
+    /**
+     * Селектор I/O (по умолчанию NativeStreamSelector).
+     *
+     * @var StreamSelectorInterface
+     */
     private readonly StreamSelectorInterface $selector;
 
     /**
-     * @param StreamSelectorInterface|null $selector Селектор I/O (по умолчанию нативный)
+     * Создаёт рантайм с заданным или нативным селектором.
+     *
+     * @param StreamSelectorInterface|null $selector Селектор stream_select; null — NativeStreamSelector
      */
     public function __construct(?StreamSelectorInterface $selector = null)
     {
@@ -30,7 +37,14 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Запускает задачу в Fiber и обрабатывает suspend-ожидания I/O до завершения.
+     *
+     * @param callable(): mixed $task Замыкание без аргументов
+     *
+     * @return mixed Результат $task
+     *
+     * @throws TimeoutException При таймауте/ошибке ожидания внутри цикла
+     * @throws \Throwable       Исключения из $task
      *
      * @psalm-suppress MixedAssignment
      */
@@ -54,7 +68,12 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Ждёт готовности stream к чтению (suspend из Fiber или блокирующий wait).
+     *
+     * @param mixed $stream         PHP stream resource
+     * @param float $timeoutSeconds Таймаут в секундах
+     *
+     * @throws TimeoutException При таймауте или неверном stream
      */
     #[\Override]
     public function awaitReadable(mixed $stream, float $timeoutSeconds): void
@@ -63,7 +82,12 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Ждёт готовности stream к записи (suspend из Fiber или блокирующий wait).
+     *
+     * @param mixed $stream         PHP stream resource
+     * @param float $timeoutSeconds Таймаут в секундах
+     *
+     * @throws TimeoutException При таймауте или неверном stream
      */
     #[\Override]
     public function awaitWritable(mixed $stream, float $timeoutSeconds): void
@@ -72,7 +96,11 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Проверяет payload ожидания I/O.
+     * Проверяет, что значение — корректный payload ожидания I/O от Fiber::suspend.
+     *
+     * @param mixed $value Значение, полученное из Fiber::start/resume
+     *
+     * @return bool true если это массив с op/stream/timeout нужных типов
      *
      * @phpstan-assert-if-true array{op: string, stream: mixed, timeout: float|int} $value
      * @psalm-assert-if-true array{op: string, stream: mixed, timeout: float|int} $value
@@ -89,7 +117,11 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Наличие обязательных ключей payload.
+     * Проверяет наличие ключей op, stream и timeout в массиве.
+     *
+     * @param mixed $value Кандидат в wait-payload
+     *
+     * @return bool true если $value — массив с тремя ключами
      *
      * @phpstan-assert-if-true array<mixed> $value
      */
@@ -102,9 +134,13 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Приостанавливает текущий Fiber до готовности I/O.
+     * Приостанавливает текущий Fiber или выполняет блокирующий wait вне Fiber.
      *
-     * @param mixed $stream Stream resource
+     * @param string $op             Операция: «read» или «write»
+     * @param mixed  $stream         PHP stream resource
+     * @param float  $timeoutSeconds Таймаут в секундах
+     *
+     * @throws TimeoutException При ошибке wait
      */
     private function suspend(string $op, mixed $stream, float $timeoutSeconds): void
     {
@@ -122,11 +158,15 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Select по одному stream с дробным таймаутом.
+     * Выполняет select по одному stream с дробным таймаутом.
      *
-     * @param mixed $stream Stream resource
+     * Потоки MEMORY/TEMP считаются сразу готовыми (без select).
      *
-     * @throws TimeoutException
+     * @param mixed  $stream         PHP stream resource
+     * @param string $op             «read» или «write»
+     * @param float  $timeoutSeconds Таймаут в секундах
+     *
+     * @throws TimeoutException При не-resource, ошибке select, таймауте или неизвестной $op
      */
     private function wait(mixed $stream, string $op, float $timeoutSeconds): void
     {
@@ -153,9 +193,11 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * MEMORY/TEMP не требуют select.
+     * Определяет, является ли stream in-memory (MEMORY/TEMP) и не требует select.
      *
-     * @param resource $stream
+     * @param resource $stream Открытый stream
+     *
+     * @return bool true для php://memory и php://temp
      */
     private function isMemoryStream(mixed $stream): bool
     {
@@ -166,13 +208,14 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Корзины read/write для операции.
+     * Собирает корзины read/write для операции select.
      *
-     * @param resource $stream
+     * @param resource $stream Целевой stream
+     * @param string   $op     «read» или «write»
      *
-     * @return array{0: array<int, resource>|null, 1: array<int, resource>|null}
+     * @return array{0: array<int, resource>|null, 1: array<int, resource>|null} [read, write]
      *
-     * @throws TimeoutException
+     * @throws TimeoutException Если $op неизвестна
      */
     private function bucketsForOp(mixed $stream, string $op): array
     {
@@ -188,9 +231,11 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
     }
 
     /**
-     * Делит float-таймаут на секунды и микросекунды без округления вверх до 1с.
+     * Делит float-таймаут на целые секунды и микросекунды без ложного округления вверх до 1 с.
      *
-     * @return array{0: int, 1: int}
+     * @param float $timeoutSeconds Таймаут; ≤0 даёт [0, 0]
+     *
+     * @return array{0: int, 1: int} [seconds, microseconds]
      */
     private function splitTimeout(float $timeoutSeconds): array
     {

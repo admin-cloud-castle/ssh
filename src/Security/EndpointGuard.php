@@ -9,7 +9,7 @@ use CloudCastle\Ssh\Contract\DnsResolverInterface;
 use CloudCastle\Ssh\Exception\SecurityException;
 
 /**
- * Валидация endpoint, DNS-resolve и защита от SSRF / DNS-rebinding.
+ * Валидация SSH-endpoint, DNS-resolve и защита от SSRF / DNS-rebinding через IP-pinning.
  *
  * @SuppressWarnings("PHPMD.CyclomaticComplexity")
  * @SuppressWarnings("PHPMD.NPathComplexity")
@@ -20,17 +20,25 @@ use CloudCastle\Ssh\Exception\SecurityException;
 final class EndpointGuard
 {
     /**
-     * @param DnsResolverInterface $dns Резолвер DNS
+     * Создаёт guard с заданным DNS-резолвером.
+     *
+     * @param DnsResolverInterface $dns Резолвер имён (по умолчанию PhpDnsResolver)
      */
     public function __construct(
+        /** DNS-резолвер имён. @var DnsResolverInterface */
         private readonly DnsResolverInterface $dns = new PhpDnsResolver(),
     ) {
     }
 
     /**
-     * Проверяет endpoint и возвращает IP-pinned вариант.
+     * Проверяет форму endpoint и при включённом blockPrivateAddresses возвращает IP-pinned цель.
      *
-     * @throws SecurityException
+     * @param string            $endpoint Сырой endpoint (host, host:port, [ipv6]:port или URL)
+     * @param ConnectionOptions $options  Опции; важен флаг blockPrivateAddresses()
+     *
+     * @return PinnedEndpoint Готовый к connect endpoint, host, IP-список и порт
+     *
+     * @throws SecurityException При пустом/битом endpoint или запрещённых/нерезолвимых адресах
      */
     public function prepare(string $endpoint, ConnectionOptions $options): PinnedEndpoint
     {
@@ -55,7 +63,11 @@ final class EndpointGuard
     }
 
     /**
-     * Извлекает host из endpoint.
+     * Извлекает hostname/IP из endpoint без порта и схемы.
+     *
+     * @param string $endpoint Строка цели подключения
+     *
+     * @return string|null Host в lowercase; null если URL без host или битые скобки IPv6
      */
     public function extractHost(string $endpoint): ?string
     {
@@ -71,7 +83,11 @@ final class EndpointGuard
     }
 
     /**
-     * Извлекает TCP-порт (по умолчанию 22).
+     * Извлекает TCP-порт из endpoint; при отсутствии — 22.
+     *
+     * @param string $endpoint Строка цели подключения
+     *
+     * @return int Порт 1…65535 из строки или 22 по умолчанию
      */
     public function extractPort(string $endpoint): int
     {
@@ -109,11 +125,13 @@ final class EndpointGuard
     }
 
     /**
-     * Резолвит hostname в публичные IP.
+     * Резолвит hostname в список публичных IP; литерал IP проверяет на блокировку.
      *
-     * @return list<string>
+     * @param string $host Имя хоста или IP-литерал
      *
-     * @throws SecurityException
+     * @return list<string> Непустой список публичных адресов
+     *
+     * @throws SecurityException При localhost, private/reserved IP, пустом DNS или blocked A/AAAA
      */
     public function resolvePublicIps(string $host): array
     {
@@ -149,7 +167,11 @@ final class EndpointGuard
     }
 
     /**
-     * @throws SecurityException
+     * Проверяет, что endpoint не пуст и не содержит управляющих символов.
+     *
+     * @param string $endpoint Уже trim-нутая строка
+     *
+     * @throws SecurityException При пустой строке, NUL или C0/DEL
      */
     private function assertEndpointShape(string $endpoint): void
     {
@@ -162,6 +184,13 @@ final class EndpointGuard
         }
     }
 
+    /**
+     * Определяет локальные/loopback имена, запрещённые при SSRF-guard.
+     *
+     * @param string $host Имя или адрес
+     *
+     * @return bool true для localhost, *.localhost и 0.0.0.0
+     */
     private function isLocalHostname(string $host): bool
     {
         return $host === 'localhost'
@@ -169,6 +198,13 @@ final class EndpointGuard
             || $host === '0.0.0.0';
     }
 
+    /**
+     * Извлекает host из URL со схемой через parse_url.
+     *
+     * @param string $endpoint Строка с `://`
+     *
+     * @return string|null Host в lowercase без скобок IPv6; null если host отсутствует
+     */
     private function hostFromUrl(string $endpoint): ?string
     {
         $parts = parse_url($endpoint);
@@ -187,6 +223,13 @@ final class EndpointGuard
         return $host;
     }
 
+    /**
+     * Извлекает IPv6 из формы `[addr]:port` или `[addr]`.
+     *
+     * @param string $endpoint Строка, начинающаяся с `[`
+     *
+     * @return string|null Адрес без скобок в lowercase; null если нет закрывающей `]`
+     */
     private function hostFromBracket(string $endpoint): ?string
     {
         $end = strpos($endpoint, ']');
@@ -198,6 +241,13 @@ final class EndpointGuard
         return strtolower(substr($endpoint, 1, $end - 1));
     }
 
+    /**
+     * Извлекает host из формы `host` или `host:port` (порт — только цифры).
+     *
+     * @param string $endpoint Строка без схемы и без ведущих `[`
+     *
+     * @return string Host в lowercase (может быть пустой строкой)
+     */
     private function hostFromHostPort(string $endpoint): string
     {
         $candidate = $endpoint;
@@ -210,6 +260,14 @@ final class EndpointGuard
         return strtolower($candidate);
     }
 
+    /**
+     * Подменяет host в endpoint на pinned IP, сохраняя схему, порт и path.
+     *
+     * @param string $endpoint Исходный endpoint
+     * @param string $ip       Публичный IP для connect (IPv6 оформляется в скобки)
+     *
+     * @return string Endpoint с подставленным IP
+     */
     private function replaceHost(string $endpoint, string $ip): string
     {
         $formattedIp = str_contains($ip, ':') ? '[' . $ip . ']' : $ip;
@@ -247,6 +305,13 @@ final class EndpointGuard
         return $formattedIp;
     }
 
+    /**
+     * Проверяет, что IP входит в private/reserved диапазон (блокируется SSRF-guard).
+     *
+     * @param string $ip IPv4 или IPv6 литерал
+     *
+     * @return bool true если адрес не проходит FILTER_FLAG_NO_PRIV_RANGE|NO_RES_RANGE
+     */
     private function isBlockedIp(string $ip): bool
     {
         return filter_var(

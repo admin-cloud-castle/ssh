@@ -173,61 +173,90 @@ final class NativeSession implements SessionInterface
     private const CLIENT_ID = 'SSH-2.0-CloudCastle_ConnectManager_1.0';
 
     /**
-     * Транспорт пакетов.
+     * Транспорт binary packets поверх TCP stream.
+     *
+     * @var SshWire
      */
     private readonly SshWire $wire;
 
     /**
      * Identification string сервера без CR/LF.
+     *
+     * @var string
      */
     private string $serverId = '';
 
     /**
      * Exchange hash H — session id для USERAUTH.
+     *
+     * @var string
      */
     private string $sessionId = '';
 
     /**
-     * true после успешной аутентификации до disconnect().
+     * Флаг: true после успешной аутентификации до disconnect().
+     *
+     * @var bool
      */
     private bool $connected = false;
 
     /**
      * Имя активного subsystem или '' если не запрошен.
+     *
+     * @var string
      */
     private string $subsystem = '';
 
     /**
      * Локальный channel id (сейчас всегда 0).
+     *
+     * @var int
      */
     private int $localChannel = 0;
 
     /**
      * Remote channel id из OPEN_CONFIRMATION; 0 — канал не открыт.
+     *
+     * @var int
      */
     private int $remoteChannel = 0;
 
     /**
      * Накопленные CHANNEL_DATA до чтения приложением.
+     *
+     * @var string
      */
     private string $channelBuffer = '';
 
     /**
-     * Получен CHANNEL_EOF или CHANNEL_CLOSE.
+     * Флаг: получен CHANNEL_EOF или CHANNEL_CLOSE.
+     *
+     * @var bool
      */
     private bool $channelEof = false;
 
+    /**
+     * Сырой blob host key из KEXDH_REPLY (для fingerprint).
+     *
+     * @var string
+     */
     private string $hostKeyBlob = '';
 
+    /**
+     * Логический endpoint, привязанный через bindEndpoint().
+     *
+     * @var string
+     */
     private string $remoteEndpoint = '';
 
     /**
-     * Выполняет identification, KEX и userauth.
+     * Выполняет identification, KEX и userauth над уже открытым TCP stream.
      *
      * @param mixed           $stream PHP stream resource после TCP connect
      * @param AuthCredentials $auth   Password или publickey
      *
-     * @throws ConnectionException При неверном stream, отсутствии gmp или ошибке протокола
+     * @throws ConnectionException     При неверном stream, отсутствии gmp или ошибке протокола
+     * @throws AuthenticationException При отклонении userauth
      */
     public function __construct(mixed $stream, AuthCredentials $auth)
     {
@@ -248,9 +277,9 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает, открыта ли сессия после успешного handshake/auth.
      *
-     * @return bool true после успешного конструктора до disconnect()
+     * @return bool true после конструктора до disconnect(); иначе false
      */
     #[\Override]
     public function isConnected(): bool
@@ -259,9 +288,7 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
-     *
-     * Отправляет DISCONNECT (reason 11) и закрывает wire.
+     * Отправляет SSH_MSG_DISCONNECT (reason 11) и закрывает wire; идемпотентно.
      */
     #[\Override]
     public function disconnect(): void
@@ -286,11 +313,11 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Открывает session-канал, запрашивает exec и возвращает stdout до EOF.
      *
-     * @param string $command Команда для exec
+     * @param string $command Удалённая команда оболочки/exec
      *
-     * @return string Вывод канала до EOF
+     * @return string Накопленный вывод канала (может быть пустым)
      *
      * @throws ConnectionException При закрытой сессии или ошибке протокола
      */
@@ -312,9 +339,9 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Пишет CHANNEL_DATA в открытый session-канал (открывает канал при необходимости).
      *
-     * @param string $payload Байты CHANNEL_DATA
+     * @param string $payload Байты для удалённой стороны
      *
      * @throws ConnectionException При закрытой сессии или ошибке записи
      */
@@ -335,11 +362,11 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Читает до $maxLength байт из буфера канала (неблокирующий pump).
      *
-     * @param int $maxLength Максимум байт; ≤0 трактуется как 1
+     * @param int $maxLength Максимум байт за вызов; ≤0 трактуется как 1
      *
-     * @return string Фрагмент буфера или ''
+     * @return string Фрагмент буфера или '' если данных нет
      *
      * @throws ConnectionException При закрытой сессии
      */
@@ -361,11 +388,11 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Запрашивает SSH subsystem на session-канале (например sftp из другого пакета).
      *
-     * @param string $name Имя subsystem (например «sftp» из отдельного пакета)
+     * @param string $name Непустое имя subsystem
      *
-     * @throws ConnectionException При закрытой сессии или отказе сервера
+     * @throws ConnectionException При пустом имени, закрытой сессии или отказе сервера
      */
     #[\Override]
     public function openSubsystem(string $name): void
@@ -449,6 +476,8 @@ final class NativeSession implements SessionInterface
 
     /**
      * Собирает SSH_MSG_KEXINIT клиента (group14-sha256 / aes128-ctr / hmac-sha2-256).
+     *
+     * @return string Полный payload KEXINIT включая cookie и name-list
      */
     private function buildClientKexInit(): string
     {
@@ -505,6 +534,15 @@ final class NativeSession implements SessionInterface
 
     /**
      * Считает exchange hash H (SHA-256) по RFC 4253 / group14-sha256.
+     *
+     * @param string $clientKex Payload клиентского KEXINIT
+     * @param string $serverKex Payload серверного KEXINIT
+     * @param string $hostKey   Blob host key сервера
+     * @param string $eBytes    Клиентский публичный DH e
+     * @param string $fBytes    Серверный публичный DH f
+     * @param string $kMpint    Общий секрет K как SSH mpint
+     *
+     * @return string 32 байта SHA-256 (сырой binary)
      */
     private function computeExchangeHash(
         string $clientKex,
@@ -529,7 +567,10 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * Выводит ключи AES/HMAC из K||H и включает шифрование на wire.
+     * Выводит ключи AES/HMAC из K||H (буквы A–F) и включает шифрование на wire.
+     *
+     * @param string $kMpint SSH mpint общего секрета K
+     * @param string $hash   Exchange hash H (также становится session id)
      */
     private function enableKeysFromSharedSecret(string $kMpint, string $hash): void
     {
@@ -812,7 +853,9 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает SHA-256 fingerprint host key в Base64 (без префикса SHA256:).
+     *
+     * @return string Base64(SHA-256(hostKeyBlob)); пустой blob даёт валидный hash пустой строки
      */
     #[\Override]
     public function hostKeyFingerprint(): string
@@ -821,7 +864,9 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает логический endpoint, привязанный после connect.
+     *
+     * @return string Строка endpoint или '' до bindEndpoint()
      */
     #[\Override]
     public function remoteEndpoint(): string
@@ -830,7 +875,9 @@ final class NativeSession implements SessionInterface
     }
 
     /**
-     * Привязывает логический endpoint к сессии.
+     * Привязывает логический endpoint к сессии (вызывает фабрика после verify).
+     *
+     * @param string $endpoint Исходный endpoint из connect()
      */
     public function bindEndpoint(string $endpoint): void
     {

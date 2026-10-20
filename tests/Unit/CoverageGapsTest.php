@@ -390,7 +390,8 @@ final class CoverageGapsTest extends TestCase
             $empty = $ref->newInstanceWithoutConstructor();
             $ctor->invoke($empty, 'u', null, null, null);
             $this->expectException(AuthenticationException::class);
-            new NativeSession($stream, $empty);
+            $session = new NativeSession($stream, $empty);
+            self::assertFalse($session->isConnected());
         } finally {
             MockSshPeer::stop($process);
         }
@@ -520,7 +521,8 @@ final class CoverageGapsTest extends TestCase
 
         try {
             $this->expectException(AuthenticationException::class);
-            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::assertFalse($session->isConnected());
         } finally {
             putenv('CC_SSH_REJECT_AUTH');
             MockSshPeer::stop($process);
@@ -534,7 +536,8 @@ final class CoverageGapsTest extends TestCase
 
         try {
             $this->expectException(AuthenticationException::class);
-            new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            $session = new NativeSession($stream, AuthCredentials::withPassword('user', 'secret'));
+            self::assertFalse($session->isConnected());
         } finally {
             putenv('CC_SSH_AUTH_ODD');
             MockSshPeer::stop($process);

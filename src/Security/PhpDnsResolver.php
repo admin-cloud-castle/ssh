@@ -7,7 +7,7 @@ namespace CloudCastle\Ssh\Security;
 use CloudCastle\Ssh\Contract\DnsResolverInterface;
 
 /**
- * Системный DNS через dns_get_record / gethostbynamel.
+ * Системный DNS-резолвер: dns_get_record (A/AAAA) с fallback на gethostbynamel.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  * @SuppressWarnings("PHPMD.ShortVariable")
@@ -16,7 +16,11 @@ use CloudCastle\Ssh\Contract\DnsResolverInterface;
 final class PhpDnsResolver implements DnsResolverInterface
 {
     /**
-     * {@inheritdoc}
+     * Резолвит hostname в список IP; для IP-литерала возвращает `[$host]` без DNS.
+     *
+     * @param string $host Имя хоста или IPv4/IPv6 литерал
+     *
+     * @return list<string> Уникальные адреса; [] если DNS не ответил
      */
     #[\Override]
     public function resolve(string $host): array
@@ -31,9 +35,11 @@ final class PhpDnsResolver implements DnsResolverInterface
     }
 
     /**
-     * Собирает A/AAAA из dns_get_record.
+     * Собирает A/AAAA записи через dns_get_record.
      *
-     * @return list<string>
+     * @param string $host Имя хоста
+     *
+     * @return list<string> Уникальные IP из успешных записей
      */
     private function fromDnsRecords(string $host): array
     {
@@ -59,9 +65,11 @@ final class PhpDnsResolver implements DnsResolverInterface
     }
 
     /**
-     * Извлекает IP из строки результата dns_get_record.
+     * Извлекает IP из одной строки результата dns_get_record.
      *
-     * @param array{type?: string, ip?: string, ipv6?: string} $record
+     * @param array{type?: string, ip?: string, ipv6?: string} $record Строка A или AAAA
+     *
+     * @return string|null IPv4/IPv6 или null для прочих типов / пустых полей
      *
      * @psalm-suppress MixedAssignment
      */
@@ -81,9 +89,11 @@ final class PhpDnsResolver implements DnsResolverInterface
     }
 
     /**
-     * Fallback через gethostbynamel (только IPv4).
+     * Fallback-резолв только IPv4 через gethostbynamel.
      *
-     * @return list<string>
+     * @param string $host Имя хоста
+     *
+     * @return list<string> Уникальные IPv4; [] при false от gethostbynamel
      */
     private function fromGethostbynamel(string $host): array
     {

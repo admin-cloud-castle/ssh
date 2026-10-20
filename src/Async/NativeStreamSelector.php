@@ -5,14 +5,26 @@ declare(strict_types=1);
 namespace CloudCastle\Ssh\Async;
 
 /**
- * Нативный stream_select.
+ * Нативная реализация StreamSelectorInterface через PHP stream_select.
  *
  * @SuppressWarnings("PHPMD.ErrorControlOperator")
  */
 final class NativeStreamSelector implements StreamSelectorInterface
 {
     /**
-     * {@inheritdoc}
+     * Вызывает stream_select с подавлением предупреждений (ошибка → false).
+     *
+     * @param array<int, resource>|null $read         Корзина на чтение или null
+     * @param array<int, resource>|null $write        Корзина на запись или null
+     * @param array<int, resource>|null $except       Корзина exceptional или null
+     * @param int                       $seconds      Целые секунды таймаута
+     * @param int                       $microseconds Микросекунды таймаута
+     *
+     * @param-out array<array-key, resource>|null $read
+     * @param-out array<array-key, resource>|null $write
+     * @param-out array<array-key, resource>|null $except
+     *
+     * @return int|false Как у stream_select
      */
     #[\Override]
     public function select(

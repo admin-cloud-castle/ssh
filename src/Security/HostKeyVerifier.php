@@ -8,14 +8,21 @@ use CloudCastle\Ssh\Contract\ConnectionOptions;
 use CloudCastle\Ssh\Exception\HostKeyException;
 
 /**
- * Проверка SHA256 fingerprint host key (timing-safe).
+ * Timing-safe проверка SHA-256 fingerprint host key по политике ConnectionOptions.
  */
 final class HostKeyVerifier
 {
     /**
-     * Сверяет fingerprint с доверенным списком при strictHostKey.
+     * Сверяет fingerprint сервера с trustedHostKeys и флагом strictHostKey.
      *
-     * @throws HostKeyException
+     * Если список null и strict выключен — проверка пропускается.
+     * Если список null и strict включён — ошибка.
+     * Если список задан — требуется hash_equals с одним из элементов.
+     *
+     * @param string            $fingerprint Base64 SHA-256 без обязательного префикса SHA256:
+     * @param ConnectionOptions $options     Политика host key
+     *
+     * @throws HostKeyException При несовпадении или пустом списке в strict-режиме
      */
     public function verify(string $fingerprint, ConnectionOptions $options): void
     {
@@ -41,7 +48,11 @@ final class HostKeyVerifier
     }
 
     /**
-     * Убирает префикс SHA256: если есть.
+     * Убирает префикс «SHA256:», если он присутствует в строке fingerprint.
+     *
+     * @param string $fingerprint Сырой или префиксированный fingerprint
+     *
+     * @return string Base64 без префикса
      */
     private function normalize(string $fingerprint): string
     {

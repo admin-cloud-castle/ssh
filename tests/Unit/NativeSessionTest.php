@@ -87,6 +87,7 @@ final class NativeSessionTest extends TestCase
     public function testRejectsNonResource(): void
     {
         $this->expectException(\CloudCastle\Ssh\Exception\ConnectionException::class);
-        new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
+        $session = new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
+        self::assertFalse($session->isConnected());
     }
 }

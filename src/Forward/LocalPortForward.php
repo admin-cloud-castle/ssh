@@ -8,24 +8,36 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Exception\ConnectionException;
 
 /**
- * Локальный port-forward через SSH channel direct-tcpip (упрощённый API).
+ * Упрощённый local port-forward: TCP-запрос с стороны SSH-сервера через remote nc/bash.
  *
- * Реализация использует remote `nc`/`bash /dev/tcp` как совместимый транспорт,
- * когда native channel-forward ещё не поднят на конкретной сессии.
+ * Используется, когда native channel direct-tcpip ещё не реализован на сессии.
  */
 final class LocalPortForward
 {
     /**
-     * @param SessionInterface $session Активная сессия
+     * Создаёт helper forward над активной сессией.
+     *
+     * @param SessionInterface $session Подключённая SSH-сессия
      */
-    public function __construct(private readonly SessionInterface $session)
-    {
+    public function __construct(
+        /** Активная SSH-сессия. @var SessionInterface */
+        private readonly SessionInterface $session,
+    ) {
     }
 
     /**
-     * Проксирует TCP-запрос к host:port со стороны SSH-сервера и возвращает ответ.
+     * Отправляет $payload на $remoteHost:$remotePort со стороны сервера и возвращает ответ.
      *
-     * @throws ConnectionException
+     * Ответ ожидается в base64; если декодирование не удалось — возвращается сырой stdout.
+     *
+     * @param string $remoteHost Хост, видимый с SSH-сервера (не обязательно публичный)
+     * @param int    $remotePort TCP-порт 1…65535
+     * @param string $payload    Байты запроса к удалённому сервису
+     * @param float  $timeout    Таймаут remote-команды в секундах (минимум 1 после округления)
+     *
+     * @return string Декодированный ответ или сырой stdout exec
+     *
+     * @throws ConnectionException При некорректном порте или ошибке exec
      */
     public function request(string $remoteHost, int $remotePort, string $payload, float $timeout = 5.0): string
     {

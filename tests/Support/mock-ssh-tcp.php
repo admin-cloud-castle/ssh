@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use CloudCastle\Ssh\Tests\Support\MockSshServer;
 
@@ -30,7 +30,8 @@ if ($client === false) {
 
 try {
     (new MockSshServer($client))->serve();
-} catch (Throwable) {
+} catch (Throwable $error) {
+    fwrite(STDERR, 'mock-ssh-tcp: ' . $error->getMessage() . "\n");
 }
 
 fclose($client);

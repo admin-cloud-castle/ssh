@@ -11,22 +11,32 @@ use CloudCastle\Ssh\Contract\SessionInterface;
 use CloudCastle\Ssh\Contract\SessionPoolInterface;
 
 /**
- * Пул idle SSH-сессий с ключом по endpoint.
+ * Пул idle SSH-сессий с ключом по lowercase(endpoint) и лимитом на ключ.
  */
 final class SessionPool implements SessionPoolInterface
 {
+    /**
+     * Максимум idle-сессий на один ключ endpoint (≥1 после нормализации).
+     *
+     * @var int
+     */
     private readonly int $maxPerKey;
 
     /**
+     * Корзины idle-сессий: ключ — lowercase endpoint.
+     *
      * @var array<string, list<SessionInterface>>
      */
     private array $idle = [];
 
     /**
-     * @param SessionFactoryInterface $factory   Фабрика
-     * @param int                     $maxPerKey Максимум idle на ключ
+     * Создаёт пул над фабрикой сессий.
+     *
+     * @param SessionFactoryInterface $factory Для connect при пустом/протухшем idle
+     * @param int                     $maxPerKey Максимум idle на ключ; ≤0 заменяется на 8
      */
     public function __construct(
+        /** Фабрика для создания новых сессий. @var SessionFactoryInterface */
         private readonly SessionFactoryInterface $factory,
         int $maxPerKey = 8,
     ) {
@@ -34,7 +44,13 @@ final class SessionPool implements SessionPoolInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Берёт живую сессию из idle или создаёт новую через фабрику.
+     *
+     * @param string                 $endpoint Цель и ключ пула
+     * @param AuthCredentials        $auth     Credentials для новой сессии
+     * @param ConnectionOptions|null $options  Опции для новой сессии
+     *
+     * @return SessionInterface Подключённая сессия
      */
     #[\Override]
     public function acquire(
@@ -58,7 +74,9 @@ final class SessionPool implements SessionPoolInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает сессию в idle или закрывает при переполнении корзины.
+     *
+     * @param SessionInterface $session Сессия после использования вызывающим кодом
      */
     #[\Override]
     public function release(SessionInterface $session): void
@@ -81,7 +99,7 @@ final class SessionPool implements SessionPoolInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Закрывает все idle-сессии и очищает внутренние корзины.
      */
     #[\Override]
     public function drain(): void
@@ -96,7 +114,9 @@ final class SessionPool implements SessionPoolInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает суммарное число idle-сессий.
+     *
+     * @return int Целое ≥0
      */
     #[\Override]
     public function size(): int
@@ -110,6 +130,13 @@ final class SessionPool implements SessionPoolInterface
         return $total;
     }
 
+    /**
+     * Нормализует endpoint в ключ пула (нижний регистр).
+     *
+     * @param string $endpoint Исходный endpoint
+     *
+     * @return string Ключ корзины
+     */
     private function key(string $endpoint): string
     {
         return strtolower($endpoint);
