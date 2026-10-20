@@ -1,0 +1,17 @@
+name: Документация
+description: Ошибка или пробел в документации
+labels: [documentation]
+body:
+  - type: textarea
+    id: where
+    attributes:
+      label: Где
+      description: README, wiki, PHPDoc, сайт…
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Что не так / чего не хватает
+    validations:
+      required: true

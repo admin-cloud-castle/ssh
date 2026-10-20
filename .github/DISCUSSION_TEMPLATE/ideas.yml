@@ -1,0 +1,10 @@
+title: "[Идея] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Идея
+      description: Какую возможность предлагаете и зачем она нужна?
+    validations:
+      required: true

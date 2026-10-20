@@ -1,0 +1,23 @@
+name: Ошибка
+description: Сообщить о баге
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло
+      description: Ожидание vs факт
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия пакета
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Как воспроизвести
+    validations:
+      required: true

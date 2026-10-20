@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-label="CloudCastle Ssh">
+  <defs>
+    <linearGradient id="cc-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7274a6"/>
+      <stop offset="0.55" stop-color="#565884"/>
+      <stop offset="1" stop-color="#464870"/>
+    </linearGradient>
+    <radialGradient id="cc-glow" cx="0.24" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="360" rx="64" fill="url(#cc-bg)"/>
+  <rect x="0" y="0" width="1200" height="360" rx="64" fill="url(#cc-glow)"/>
+
+  <!-- ЛОГОТИП (слева) -->
+  <g font-family="'Segoe UI',Verdana,Arial,sans-serif">
+    <ellipse cx="180" cy="54" rx="80" ry="34" fill="#eef0fa"/>
+    <text x="180" y="69" text-anchor="middle" font-style="italic" font-weight="800" font-size="44" fill="#3b3c6b">php</text>
+
+    <rect x="178" y="96" width="4" height="30" fill="#ffffff"/>
+    <path d="M182 99 L210 107 L182 115 Z" fill="#f6a623"/>
+
+    <rect x="104" y="150" width="44" height="86" fill="#ffffff"/>
+    <rect x="212" y="150" width="44" height="86" fill="#ffffff"/>
+    <rect x="138" y="150" width="10" height="86" fill="#c9cce8"/>
+    <rect x="246" y="150" width="10" height="86" fill="#c9cce8"/>
+    <rect x="104" y="142" width="12" height="12" fill="#ffffff"/>
+    <rect x="124" y="142" width="12" height="12" fill="#ffffff"/>
+    <rect x="212" y="142" width="12" height="12" fill="#ffffff"/>
+    <rect x="232" y="142" width="12" height="12" fill="#ffffff"/>
+
+    <rect x="150" y="124" width="60" height="112" fill="#ffffff"/>
+    <rect x="198" y="124" width="12" height="112" fill="#c9cce8"/>
+    <rect x="150" y="116" width="13" height="12" fill="#ffffff"/>
+    <rect x="173" y="116" width="14" height="12" fill="#ffffff"/>
+    <rect x="197" y="116" width="13" height="12" fill="#ffffff"/>
+
+    <path d="M118 178 a8 8 0 0 1 16 0 v24 h-16 Z" fill="#2b2b5b"/>
+    <path d="M226 178 a8 8 0 0 1 16 0 v24 h-16 Z" fill="#2b2b5b"/>
+    <path d="M158 150 a6 6 0 0 1 12 0 v16 h-12 Z" fill="#2b2b5b"/>
+    <path d="M190 150 a6 6 0 0 1 12 0 v16 h-12 Z" fill="#2b2b5b"/>
+    <path d="M166 236 v-30 a14 14 0 0 1 28 0 v30 Z" fill="#2b2b5b"/>
+
+    <g fill="#f4f5fb">
+      <circle cx="120" cy="266" r="24"/>
+      <circle cx="150" cy="256" r="30"/>
+      <circle cx="190" cy="252" r="34"/>
+      <circle cx="230" cy="258" r="28"/>
+      <circle cx="258" cy="268" r="20"/>
+      <rect x="112" y="266" width="156" height="26" rx="13"/>
+    </g>
+    <rect x="128" y="288" width="120" height="7" rx="3.5" fill="#dfe2f2"/>
+
+    <text x="180" y="330" text-anchor="middle" font-weight="800" font-size="40">
+      <tspan fill="#ffffff">Cloud</tspan><tspan fill="#b9bce4">Castle</tspan>
+    </text>
+    <text x="182" y="352" text-anchor="middle" font-weight="700" font-size="15" letter-spacing="6" fill="#9a9ecb">ECOSYSTEM</text>
+  </g>
+
+  <!-- разделитель -->
+  <line x1="372" y1="80" x2="372" y2="280" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2"/>
+
+  <!-- НАЗВАНИЕ ПАКЕТА (справа) -->
+  <g font-family="'Segoe UI',Verdana,Arial,sans-serif" font-weight="800" fill="#ffffff" text-anchor="middle">
+    <text x="780" y="154" font-size="102">CloudCastle</text>
+    <text x="780" y="274" font-size="102">Ssh</text>
+  </g>
+</svg>

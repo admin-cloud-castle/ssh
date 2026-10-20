@@ -1,0 +1,17 @@
+{
+    "source": {
+        "directories": ["src"]
+    },
+    "timeout": 30,
+    "logs": {
+        "text": "var/infection/infection.log",
+        "html": "var/infection/infection.html",
+        "summary": "var/infection/summary.log",
+        "json": "var/infection/infection.json"
+    },
+    "minMsi": 100,
+    "minCoveredMsi": 100,
+    "mutators": {
+        "@default": true
+    }
+}

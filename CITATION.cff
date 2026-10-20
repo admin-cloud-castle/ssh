@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "cloud-castle/ssh"
+message: "Если используете этот пакет в исследовании — укажите ссылку на репозиторий."
+type: software
+authors:
+  - name: "CloudCastle"
+    email: "admin.cloudcastle@gmail.com"
+repository-code: "https://github.com/admin-cloud-castle/ssh"
+license: MIT
+version: 0.0.1

@@ -1,0 +1,26 @@
+name: Attest release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Generate SBOM (placeholder)
+        run: |
+          mkdir -p var/sbom
+          printf '%s\n' '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > var/sbom/bom.json
+
+      - name: Attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: var/sbom/bom.json

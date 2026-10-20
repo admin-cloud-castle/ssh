@@ -1,0 +1,20 @@
+# Analysis на Scrutinizer; coverage — ocular из GitHub Actions (Quality).
+build:
+  nodes:
+    analysis:
+      tests:
+        override:
+          - php-scrutinizer-run
+
+tools:
+  external_code_coverage:
+    timeout: 1200
+
+checks:
+  php: true
+
+filter:
+  excluded_paths:
+    - 'tests/*'
+    - 'tools/*'
+    - 'vendor/*'

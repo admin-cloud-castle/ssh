@@ -1,0 +1,33 @@
+name: Coverage Coveralls
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  coveralls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download latest coverage artifact
+        uses: dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477 # v27
+        continue-on-error: true
+        with:
+          workflow: quality.yml
+          name: coverage-clover
+          path: var/coverage
+          search_artifacts: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Coveralls
+        if: hashFiles('var/coverage/clover.xml') != ''
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
+        with:
+          file: var/coverage/clover.xml
+          format: clover
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}

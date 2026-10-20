@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<phpdocumentor
+    configVersion="3"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://www.phpdoc.org"
+>
+    <title>Ssh</title>
+    <paths>
+        <output>site</output>
+        <cache>var/phpdoc/cache</cache>
+    </paths>
+    <version number="1.0.0">
+        <api>
+            <source dsn=".">
+                <path>src</path>
+            </source>
+            <ignore hidden="true" symlinks="true">
+                <path>vendor</path>
+                <path>tests</path>
+                <path>tools</path>
+            </ignore>
+            <extensions>
+                <extension>php</extension>
+            </extensions>
+            <visibility>public</visibility>
+            <visibility>protected</visibility>
+            <default-package-name>cloud-castle/ssh</default-package-name>
+        </api>
+    </version>
+</phpdocumentor>

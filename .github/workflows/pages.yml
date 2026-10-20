@@ -1,0 +1,81 @@
+name: Pages
+
+on:
+  # Только после успешного Quality (первый push/MR → CI → затем Pages)
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      # phpDocumentor в require-dev — ставим с dev
+      - run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Build phpDocumentor site
+        run: |
+          set -euo pipefail
+          rm -rf site
+          if [[ -f phpdoc.dist.xml ]]; then
+            composer docs:build
+          else
+            vendor/bin/phpdoc run -d src -t site --title="${{ github.event.repository.name }}" --force --no-interaction
+          fi
+          # Корень сайта = PHPDoc (не лендинг проекта)
+          if [[ -d site/api ]] && [[ ! -f site/index.html ]]; then
+            printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=api/index.html"><title>API docs</title></head><body><p><a href="api/index.html">API documentation</a></p></body></html>' > site/index.html
+          fi
+          if [[ ! -f site/index.html ]]; then
+            echo "phpDocumentor не создал site/index.html" >&2
+            find site -maxdepth 3 -type f | head -50 >&2 || true
+            exit 1
+          fi
+          # Корневой CNAME (host/path) в репо обязателен и не трогаем.
+          # В артефакт Pages кладём только чистый hostname поддомена (не apex и не path).
+          if [[ -f CNAME ]]; then
+            host="$(tr -d '[:space:]' < CNAME)"
+            host="${host%%/*}"
+            if [[ -n "${host}" && "${host}" != 'cloud-castle.ru' ]]; then
+              printf '%s\n' "${host}" > site/CNAME
+            fi
+          fi
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      actions: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

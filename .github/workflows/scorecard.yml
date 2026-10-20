@@ -1,0 +1,50 @@
+name: OpenSSF Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '32 5 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+          # git: читать из checkout (у новых репо Code Search часто пустой → ложные 0)
+          file_mode: git
+          # PAT (SCORECARD_TOKEN) с admin — иначе Branch-Protection всегда 0
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
+        with:
+          sarif_file: results.sarif
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5

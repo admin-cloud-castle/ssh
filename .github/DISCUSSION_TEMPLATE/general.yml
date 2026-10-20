@@ -1,0 +1,9 @@
+title: "[Обсуждение] "
+body:
+  - type: textarea
+    id: topic
+    attributes:
+      label: Тема
+      description: Что хотите обсудить с сообществом?
+    validations:
+      required: true

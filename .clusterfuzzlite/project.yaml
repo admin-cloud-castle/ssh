@@ -1,0 +1,6 @@
+language: python
+fuzzing_engines:
+  - libfuzzer
+sanitizers:
+  - address
+main_repo: https://github.com/admin-cloud-castle/ssh.git

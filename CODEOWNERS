@@ -1,0 +1,2 @@
+# Дублирует .github/CODEOWNERS для совместимости с некоторыми клиентами.
+* @admin-cloud-castle

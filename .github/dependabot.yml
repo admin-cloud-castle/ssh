@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - ci
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
+    labels:
+      - dependencies
+      - ci

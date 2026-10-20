@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<ruleset name="cloud-castle/ssh">
+    <description>PSR-12</description>
+    <file>src</file>
+    <file>tests</file>
+    <file>tools</file>
+    <arg name="colors"/>
+    <arg value="p"/>
+    <rule ref="PSR12"/>
+</ruleset>

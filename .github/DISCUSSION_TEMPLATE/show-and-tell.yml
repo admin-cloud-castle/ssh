@@ -1,0 +1,9 @@
+title: "[Кейс] "
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: Как используете пакет
+      description: Краткий кейс, ссылка на проект (по желанию)
+    validations:
+      required: true

@@ -1,0 +1,49 @@
+name: Codacy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codacy:
+    name: Codacy coverage
+    runs-on: ubuntu-latest
+    env:
+      CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+    steps:
+      - name: Skip notice
+        if: ${{ env.CODACY_API_TOKEN == '' }}
+        run: echo "CODACY_API_TOKEN не задан — пропуск Codacy"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: ${{ env.CODACY_API_TOKEN != '' }}
+      - name: Set up PHP
+        if: ${{ env.CODACY_API_TOKEN != '' }}
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.3'
+          coverage: xdebug
+      - name: Install dependencies
+        if: ${{ env.CODACY_API_TOKEN != '' }}
+        run: composer install --no-interaction --prefer-dist
+      - name: Run tests with coverage
+        if: ${{ env.CODACY_API_TOKEN != '' }}
+        run: vendor/bin/phpunit --coverage-clover=var/coverage/clover.xml
+        continue-on-error: true
+      - name: Upload coverage to Codacy
+        if: ${{ env.CODACY_API_TOKEN != '' && hashFiles('var/coverage/clover.xml') != '' }}
+        env:
+          CODACY_PROJECT_TOKEN: ${{ env.CODACY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/codacy-coverage.sh \
+            https://coverage.codacy.com/get.sh
+          bash /tmp/codacy-coverage.sh report \
+            --force-language PHP \
+            -r var/coverage/clover.xml || true
+        continue-on-error: true

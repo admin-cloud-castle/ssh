@@ -1,0 +1,46 @@
+name: DeepSource
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deepsource:
+    name: DeepSource report
+    runs-on: ubuntu-latest
+    env:
+      DEEPSOURCE_TOKEN: ${{ secrets.DEEPSOURCE_TOKEN }}
+    steps:
+      - name: Skip notice
+        if: ${{ env.DEEPSOURCE_TOKEN == '' }}
+        run: echo "DEEPSOURCE_TOKEN не задан — пропуск DeepSource"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: ${{ env.DEEPSOURCE_TOKEN != '' }}
+        with:
+          fetch-depth: 0
+      - name: Install DeepSource CLI
+        if: ${{ env.DEEPSOURCE_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          VER=0.10.1
+          URL="https://github.com/DeepSourceCorp/cli/releases/download/v${VER}/deepsource_${VER}_linux_amd64.tar.gz"
+          SUM="e415a6a53257457ef1dad900fdb39aeb991dd01c35c4be9cafa88a41f9e50b3b"
+          curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/deepsource.tar.gz "${URL}"
+          echo "${SUM}  /tmp/deepsource.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/deepsource.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/deepsource /usr/local/bin/deepsource
+      - name: Report to DeepSource
+        if: ${{ env.DEEPSOURCE_TOKEN != '' }}
+        run: |
+          if [ -f .deepsource.toml ]; then
+            deepsource report --analyzer test-coverage --key php --value-file var/coverage/clover.xml || true
+          else
+            echo "Нет .deepsource.toml — репозиторий нужно Activate в DeepSource UI"
+          fi
+        continue-on-error: true

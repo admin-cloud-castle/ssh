@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Вопросы по использованию
+    url: https://github.com/admin-cloud-castle/ssh/discussions
+    about: Обсуждения и поддержка
+  - name: Сообщить об уязвимости
+    url: https://github.com/admin-cloud-castle/ssh/security/advisories/new
+    about: Приватный отчёт (не публичный issue)
+  - name: Донаты
+    url: https://github.com/admin-cloud-castle/ssh/blob/main/DONATE.md
+    about: Поддержать развитие пакета

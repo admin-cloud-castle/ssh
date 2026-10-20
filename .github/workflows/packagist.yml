@@ -1,0 +1,37 @@
+name: Packagist sync
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+      PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
+    steps:
+      - name: Skip notice
+        if: ${{ env.PACKAGIST_USERNAME == '' || env.PACKAGIST_API_TOKEN == '' }}
+        run: echo "PACKAGIST_* не заданы — пропуск sync"
+      - name: Update Packagist
+        if: ${{ env.PACKAGIST_USERNAME != '' && env.PACKAGIST_API_TOKEN != '' }}
+        env:
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${PACKAGIST_USERNAME}:${PACKAGIST_API_TOKEN}" \
+            -d "{\"repository\":{\"url\":\"${REPO_URL}\"}}" \
+            "https://packagist.org/api/update-package" \
+            || curl -sS -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${PACKAGIST_USERNAME}:${PACKAGIST_API_TOKEN}" \
+              -d "{\"repository\":{\"url\":\"${REPO_URL}\"}}" \
+              "https://packagist.org/api/create-package"

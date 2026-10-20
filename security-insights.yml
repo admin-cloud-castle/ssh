@@ -1,0 +1,38 @@
+header:
+  schema-version: "2.2.0"
+  last-updated: "2026-10-20"
+  last-reviewed: "2026-10-20"
+  url: https://raw.githubusercontent.com/admin-cloud-castle/ssh/main/security-insights.yml
+
+project:
+  name: cloud-castle/ssh
+  administrators:
+    - name: CloudCastle
+      email: admin.cloudcastle@gmail.com
+      social: https://github.com/admin-cloud-castle
+      primary: true
+  repositories:
+    - name: ssh
+      url: https://github.com/admin-cloud-castle/ssh
+  vulnerability-reporting:
+    reports-accepted: true
+    bug-bounty-available: false
+
+repository:
+  url: https://github.com/admin-cloud-castle/ssh
+  status: active
+  accepts-change-request: true
+  accepts-automated-change-request: true
+  core-team:
+    - name: CloudCastle
+      email: admin.cloudcastle@gmail.com
+      social: https://github.com/admin-cloud-castle
+      primary: true
+  license:
+    url: https://github.com/admin-cloud-castle/ssh/blob/main/LICENSE
+    expression: MIT
+  security:
+    assessments:
+      self:
+        comment: |
+          Базовая политика в SECURITY.md; private vulnerability reporting включён.
