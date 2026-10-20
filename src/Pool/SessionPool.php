@@ -17,8 +17,6 @@ final class SessionPool implements SessionPoolInterface
 {
     /**
      * Максимум idle-сессий на один ключ endpoint (≥1 после нормализации).
-     *
-     * @var int
      */
     private readonly int $maxPerKey;
 

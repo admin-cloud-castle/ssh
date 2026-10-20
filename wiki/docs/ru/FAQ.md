@@ -1,14 +1,14 @@
+**ru** · [en](../en/FAQ.md) · [de](../de/FAQ.md) · [fr](../fr/FAQ.md) · [es](../es/FAQ.md) · [it](../it/FAQ.md)
+
 # FAQ
 
-Документация пакета `cloud-castle/ssh` (RU).
+**Почему нет встроенного SFTP?**  
+SFTP вынесен в отдельный пакет экосистемы; этот пакет даёт `openSubsystem('sftp')`.
 
-Заполните содержимое по мере разработки. Авто-блоки:
+**Почему SSRF-guard режет localhost?**  
+По умолчанию `blockPrivateAddresses=true`. Для тестов: `allowPrivateAddresses()`.
 
-<!-- FEATURES:START -->
-<!-- FEATURES:END -->
+**Нужен ли ext-ssh2?**  
+Нет. Транспорт — pure-PHP (openssl/gmp).
 
-<!-- BENCH:START -->
-<!-- BENCH:END -->
-
-<!-- THRESHOLDS:START -->
-<!-- THRESHOLDS:END -->
+**ru** · [en](../en/FAQ.md) · [de](../de/FAQ.md) · [fr](../fr/FAQ.md) · [es](../es/FAQ.md) · [it](../it/FAQ.md)

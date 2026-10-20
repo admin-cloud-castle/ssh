@@ -1,0 +1,90 @@
+[
+    {
+        "metric": "PHPStan level max в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "Psalm errorLevel 1 в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "PHPCS PSR-12 в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "PHPMD в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "Deptrac (слои архитектуры) в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "Покрытие строк ≥99.8% (per-file) в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "Infection MSI 100% в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "metric": "Rector dry-run в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    }
+]

@@ -35,22 +35,16 @@ final class Ssh implements SshInterface
 
     /**
      * Ленивый слот пула сессий.
-     *
-     * @var SessionPoolInterface|null
      */
     private ?SessionPoolInterface $poolSlot = null;
 
     /**
      * Ленивый слот async-рантайма.
-     *
-     * @var AsyncRuntimeInterface|null
      */
     private ?AsyncRuntimeInterface $asyncSlot = null;
 
     /**
      * Ленивый слот пула процессов.
-     *
-     * @var ProcessPool|null
      */
     private ?ProcessPool $processSlot = null;
 

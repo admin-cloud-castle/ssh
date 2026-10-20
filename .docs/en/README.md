@@ -8,7 +8,7 @@
 
 > Translation stub — full content is in Russian ([README.md](../../README.md)).
 
-Production-ready PHP 8.1+ Ssh library (CloudCastle).
+Native SSH-2 client for PHP 8.1+ (sync/async, pool, SSRF-guard). Full text: Russian README.
 
 ```bash
 composer require cloud-castle/ssh

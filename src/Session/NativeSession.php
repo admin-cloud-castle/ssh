@@ -174,78 +174,56 @@ final class NativeSession implements SessionInterface
 
     /**
      * Транспорт binary packets поверх TCP stream.
-     *
-     * @var SshWire
      */
     private readonly SshWire $wire;
 
     /**
      * Identification string сервера без CR/LF.
-     *
-     * @var string
      */
     private string $serverId = '';
 
     /**
      * Exchange hash H — session id для USERAUTH.
-     *
-     * @var string
      */
     private string $sessionId = '';
 
     /**
      * Флаг: true после успешной аутентификации до disconnect().
-     *
-     * @var bool
      */
     private bool $connected = false;
 
     /**
      * Имя активного subsystem или '' если не запрошен.
-     *
-     * @var string
      */
     private string $subsystem = '';
 
     /**
      * Локальный channel id (сейчас всегда 0).
-     *
-     * @var int
      */
     private int $localChannel = 0;
 
     /**
      * Remote channel id из OPEN_CONFIRMATION; 0 — канал не открыт.
-     *
-     * @var int
      */
     private int $remoteChannel = 0;
 
     /**
      * Накопленные CHANNEL_DATA до чтения приложением.
-     *
-     * @var string
      */
     private string $channelBuffer = '';
 
     /**
      * Флаг: получен CHANNEL_EOF или CHANNEL_CLOSE.
-     *
-     * @var bool
      */
     private bool $channelEof = false;
 
     /**
      * Сырой blob host key из KEXDH_REPLY (для fingerprint).
-     *
-     * @var string
      */
     private string $hostKeyBlob = '';
 
     /**
      * Логический endpoint, привязанный через bindEndpoint().
-     *
-     * @var string
      */
     private string $remoteEndpoint = '';
 

@@ -1,14 +1,10 @@
+**ru** · [en](../en/Contributing.md) · [de](../de/Contributing.md) · [fr](../fr/Contributing.md) · [es](../es/Contributing.md) · [it](../it/Contributing.md)
+
 # Contributing
 
-Документация пакета `cloud-castle/ssh` (RU).
+См. корневой [CONTRIBUTING.md](https://github.com/admin-cloud-castle/ssh/blob/main/CONTRIBUTING.md).
 
-Заполните содержимое по мере разработки. Авто-блоки:
+Перед PR: `composer ci` (linters + static-analysis + coverage + infection) должен быть зелёным.
+Не правьте конфиги анализаторов — чините код.
 
-<!-- FEATURES:START -->
-<!-- FEATURES:END -->
-
-<!-- BENCH:START -->
-<!-- BENCH:END -->
-
-<!-- THRESHOLDS:START -->
-<!-- THRESHOLDS:END -->
+**ru** · [en](../en/Contributing.md) · [de](../de/Contributing.md) · [fr](../fr/Contributing.md) · [es](../es/Contributing.md) · [it](../it/Contributing.md)

@@ -21,8 +21,6 @@ final class FiberAsyncRuntime implements AsyncRuntimeInterface
 {
     /**
      * Селектор I/O (по умолчанию NativeStreamSelector).
-     *
-     * @var StreamSelectorInterface
      */
     private readonly StreamSelectorInterface $selector;
 

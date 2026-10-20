@@ -22,64 +22,46 @@ final class SshWire
 {
     /**
      * Sequence number исходящих пакетов (для MAC).
-     *
-     * @var int
      */
     private int $sendSeq = 0;
 
     /**
      * Sequence number входящих пакетов (для MAC).
-     *
-     * @var int
      */
     private int $recvSeq = 0;
 
     /**
      * Флаг режима после SSH_MSG_NEWKEYS.
-     *
-     * @var bool
      */
     private bool $encrypted = false;
 
     /**
      * Ключ AES-128 client→server.
-     *
-     * @var string
      */
     private string $clientToServerKey = '';
 
     /**
      * Ключ AES-128 server→client.
-     *
-     * @var string
      */
     private string $serverToClientKey = '';
 
     /**
      * IV/counter AES-CTR client→server (16 байт).
-     *
-     * @var string
      */
     private string $clientToServerIv = '';
 
     /**
      * IV/counter AES-CTR server→client (16 байт).
-     *
-     * @var string
      */
     private string $serverToClientIv = '';
 
     /**
      * Ключ HMAC-SHA256 client→server.
-     *
-     * @var string
      */
     private string $clientToServerMacKey = '';
 
     /**
      * Ключ HMAC-SHA256 server→client.
-     *
-     * @var string
      */
     private string $serverToClientMacKey = '';
 

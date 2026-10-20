@@ -69,19 +69,30 @@ final class MockSshPeer
     }
 
     /**
+     * Подключается к peer с короткими ретраями (accept может отставать от port-file).
+     *
      * @return resource
      */
     public static function connect(int $port)
     {
-        $stream = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 5.0);
+        $deadline = microtime(true) + 5.0;
+        $errno = 0;
+        $errstr = '';
+        $stream = false;
 
-        if ($stream === false) {
-            throw new RuntimeException(sprintf('connect mock: [%d] %s', $errno, $errstr));
+        while (microtime(true) < $deadline) {
+            $stream = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $errstr, 1.0);
+
+            if ($stream !== false) {
+                stream_set_timeout($stream, 10);
+
+                return $stream;
+            }
+
+            usleep(50_000);
         }
 
-        stream_set_timeout($stream, 5);
-
-        return $stream;
+        throw new RuntimeException(sprintf('connect mock: [%d] %s', $errno, $errstr));
     }
 
     /**

@@ -10,45 +10,35 @@
 `openSubsystem()` для внешних пакетов (например SFTP), Fibers-async, пул сессий,
 мультипроцесс, host-key verify и SSRF-guard — без Composer runtime-зависимостей.
 
-<!-- Группа 1: Packagist (только живые shields endpoints) -->
 [![Packagist Version](https://img.shields.io/packagist/v/cloud-castle/ssh?label=packagist)](https://packagist.org/packages/cloud-castle/ssh)
 [![PHP Version](https://img.shields.io/packagist/php-v/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh)
 [![License](https://img.shields.io/packagist/l/cloud-castle/ssh)](LICENSE)
 [![Downloads](https://img.shields.io/packagist/dt/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh)
 [![Monthly Downloads](https://img.shields.io/packagist/dm/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh)
 [![Packagist Stars](https://img.shields.io/packagist/stars/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh)
-[![Security Policy](https://img.shields.io/badge/security-policy-blue)](SECURITY.md)
+[![Dependents](https://img.shields.io/packagist/dependents/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh/dependents)
+[![Suggesters](https://img.shields.io/packagist/suggesters/cloud-castle/ssh)](https://packagist.org/packages/cloud-castle/ssh)
+[![Advisories](https://img.shields.io/badge/advisories-none-brightgreen)](https://packagist.org/packages/cloud-castle/ssh)
+<!-- группа Packagist -->
 
-<!-- Группа 2: GitHub Actions + meta -->
 [![Quality](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
 [![CodeQL](https://github.com/admin-cloud-castle/ssh/actions/workflows/codeql.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/codeql.yml)
-[![Semgrep](https://github.com/admin-cloud-castle/ssh/actions/workflows/semgrep.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/semgrep.yml)
-[![Supply chain](https://github.com/admin-cloud-castle/ssh/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/supply-chain.yml)
-[![GitGuardian](https://github.com/admin-cloud-castle/ssh/actions/workflows/gitguardian.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/gitguardian.yml)
-[![Scorecard](https://github.com/admin-cloud-castle/ssh/actions/workflows/scorecard.yml/badge.svg)](https://github.com/admin-cloud-castle/ssh/actions/workflows/scorecard.yml)
 [![GitHub stars](https://img.shields.io/github/stars/admin-cloud-castle/ssh?style=flat)](https://github.com/admin-cloud-castle/ssh/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/admin-cloud-castle/ssh?style=flat)](https://github.com/admin-cloud-castle/ssh/network/members)
 [![GitHub issues](https://img.shields.io/github/issues/admin-cloud-castle/ssh)](https://github.com/admin-cloud-castle/ssh/issues)
 [![GitHub release](https://img.shields.io/github/v/release/admin-cloud-castle/ssh?include_prereleases)](https://github.com/admin-cloud-castle/ssh/releases)
 [![Last commit](https://img.shields.io/github/last-commit/admin-cloud-castle/ssh)](https://github.com/admin-cloud-castle/ssh/commits/main)
 [![Contributors](https://img.shields.io/github/contributors/admin-cloud-castle/ssh)](https://github.com/admin-cloud-castle/ssh/graphs/contributors)
+<!-- группа GitHub -->
 
-<!-- Группа 3: качество — только живые метрики / ссылки без фейкового green -->
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
+[![PHPMD](https://img.shields.io/badge/PHPMD-clean-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
 [![PHPCS](https://img.shields.io/badge/PHPCS-PSR--12-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
 [![Psalm](https://img.shields.io/badge/Psalm-level%201-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
-[![Infection](https://img.shields.io/badge/Infection-CI-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
 [![Coverage](https://coveralls.io/repos/github/admin-cloud-castle/ssh/badge.svg?branch=main)](https://coveralls.io/github/admin-cloud-castle/ssh?branch=main)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/admin-cloud-castle/ssh/badges/quality-score.png?b=main)](https://scrutinizer-ci.com/g/admin-cloud-castle/ssh/)
-[![Scrutinizer Build](https://scrutinizer-ci.com/g/admin-cloud-castle/ssh/badges/build.png?b=main)](https://scrutinizer-ci.com/g/admin-cloud-castle/ssh/)
-[![Maintainability](https://qlty.sh/gh/admin-cloud-castle/projects/ssh/maintainability.svg)](https://qlty.sh/gh/admin-cloud-castle/projects/ssh)
-[![Qlty Coverage](https://qlty.sh/gh/admin-cloud-castle/projects/ssh/coverage.svg)](https://qlty.sh/gh/admin-cloud-castle/projects/ssh)
+[![Infection MSI](https://img.shields.io/badge/Infection-MSI%20100%25-blue)](https://github.com/admin-cloud-castle/ssh/actions/workflows/quality.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/admin-cloud-castle/ssh/badge)](https://scorecard.dev/viewer/?uri=github.com/admin-cloud-castle/ssh)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15724/badge)](https://www.bestpractices.dev/projects/15724)
-[![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=admin-cloud-castle_ssh&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=admin-cloud-castle_ssh)
-[![Snyk](https://snyk.io/test/github/admin-cloud-castle/ssh/badge.svg)](https://snyk.io/test/github/admin-cloud-castle/ssh)
-[![Codacy](https://img.shields.io/badge/Codacy-dashboard-blue)](https://app.codacy.com/gh/admin-cloud-castle/ssh/dashboard)
-[![DeepSource](https://img.shields.io/badge/DeepSource-dashboard-blue)](https://app.deepsource.com/gh/admin-cloud-castle/ssh/)
+<!-- группа качество -->
 
 ## Зачем
 
@@ -120,8 +110,9 @@ $session->disconnect();
 
 ## Сравнение с аналогами
 
-Актуальные таблицы (фичи / перф / память / безопасность / качество) — в [Wiki → Comparison](https://github.com/admin-cloud-castle/ssh/wiki/Comparison).
-В README таблицы не дублируются (защита ветки main).
+В [Wiki → Comparison](https://github.com/admin-cloud-castle/ssh/wiki/Comparison) — отдельные таблицы
+с колонкой 🏆 Победитель: функции, производительность, память, качество кода, безопасность
+и соответствие стандартам безопасности (≥5 аналогов). В README таблицы не дублируются.
 
 ## Лицензия
 

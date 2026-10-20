@@ -1,0 +1,34 @@
+{
+    "order": [
+        "ours",
+        "phpseclib/phpseclib",
+        "spatie/ssh",
+        "herzult/php-ssh",
+        "league/flysystem-sftp-v3",
+        "ext-ssh2"
+    ],
+    "labels": {
+        "ours": "cloud-castle/ssh",
+        "phpseclib/phpseclib": "phpseclib",
+        "spatie/ssh": "spatie/ssh",
+        "herzult/php-ssh": "php-ssh",
+        "league/flysystem-sftp-v3": "flysystem-sftp",
+        "ext-ssh2": "ext-ssh2"
+    },
+    "composer": {
+        "ours": "cloud-castle/ssh",
+        "phpseclib/phpseclib": "phpseclib/phpseclib",
+        "spatie/ssh": "spatie/ssh",
+        "herzult/php-ssh": "herzult/php-ssh",
+        "league/flysystem-sftp-v3": "league/flysystem-sftp-v3",
+        "ext-ssh2": "ext-ssh2"
+    },
+    "classes": {
+        "ours": "CloudCastle\\Ssh\\Ssh",
+        "phpseclib/phpseclib": "phpseclib3\\Net\\SSH2",
+        "spatie/ssh": "Spatie\\Ssh\\Ssh",
+        "herzult/php-ssh": "Ssh\\Session",
+        "league/flysystem-sftp-v3": "League\\Flysystem\\PhpseclibV3\\SftpAdapter",
+        "ext-ssh2": "ssh2_connect"
+    }
+}

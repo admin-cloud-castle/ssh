@@ -1,0 +1,156 @@
+[
+    {
+        "standard": "SECURITY.md / политика раскрытия уязвимостей",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "Packagist / FriendsOfPHP security advisories",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": true,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "composer audit в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "roave/security-advisories в require-dev",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "OpenSSF Scorecard",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "OpenSSF Best Practices",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "Статанализ безопасности в CI (PHPStan max / Psalm L1)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "CodeQL / Semgrep / supply-chain сканы в CI",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "SSRF-guard (блок частных/metadata IP по умолчанию)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "DNS pin / anti-rebinding после resolve",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "Строгая проверка host key (список fingerprints)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "standard": "Timing-safe сравнение fingerprint (CWE-208)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "Защита endpoint от управляющих символов / path abuse (CWE-22)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "standard": "Явный opt-in allowPrivateAddresses",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    }
+]

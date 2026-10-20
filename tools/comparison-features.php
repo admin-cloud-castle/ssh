@@ -1,18 +1,25 @@
 <?php
 
 /**
- * Матрица фич для сравнения с аналогами (≥5 конкурентов).
- *
- * @return list<array{feature: string, packages: array<string, bool>}>
+ * Матрица фич. Источник — comparison-features.json.
  */
 
 declare(strict_types=1);
 
-return [
-    [
-        'feature' => 'PHP 8.1+',
-        'packages' => [
-            'ours' => true,
-        ],
-    ],
-];
+require_once __DIR__ . '/ComparisonCatalogException.php';
+
+use CloudCastle\Ssh\Tools\ComparisonCatalogException;
+
+$raw = file_get_contents(__DIR__ . '/comparison-features.json');
+
+if ($raw === false) {
+    throw new ComparisonCatalogException('Не удалось прочитать comparison-features.json');
+}
+
+$data = json_decode($raw, true);
+
+if (!is_array($data)) {
+    throw new ComparisonCatalogException('Некорректный comparison-features.json');
+}
+
+return $data;
