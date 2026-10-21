@@ -453,7 +453,7 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
     private function exchangeIdentification(mixed $stream): void
     {
         if (!is_resource($stream)) { // @codeCoverageIgnore
-            throw new ConnectionException('Ожидался stream resource для SSH'); // @codeCoverageIgnore
+            throw new ConnectionException('Identification: ожидался stream resource'); // @codeCoverageIgnore
         }
 
         if (@fwrite($stream, self::CLIENT_ID . "\r\n") === false) { // @codeCoverageIgnore

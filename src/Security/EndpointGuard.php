@@ -135,11 +135,13 @@ final class EndpointGuard
             return 22;
         }
 
-        if (!isset($endpoint[$end + 1]) || $endpoint[$end + 1] !== ':') {
+        $suffixStart = $end + 1;
+
+        if (!isset($endpoint[$suffixStart]) || $endpoint[$suffixStart] !== ':') {
             return 22;
         }
 
-        $port = substr($endpoint, $end + 2);
+        $port = substr($endpoint, $suffixStart + 1);
 
         return ctype_digit($port) ? (int) $port : 22;
     }
@@ -352,8 +354,8 @@ final class EndpointGuard
     {
         $parts = parse_url($endpoint);
 
-        if (!is_array($parts)) { // @codeCoverageIgnore
-            return $endpoint; // @codeCoverageIgnore
+        if (!is_array($parts)) {
+            return $endpoint;
         }
 
         $scheme = $parts['scheme'] ?? 'tcp';

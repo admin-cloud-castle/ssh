@@ -81,6 +81,22 @@ final class EndpointGuardTest extends TestCase
         self::assertSame(['8.8.8.8'], $pinned->resolvedIps());
     }
 
+    public function testPinsAllPublicDnsAddresses(): void
+    {
+        $dns = new class () implements DnsResolverInterface {
+            #[\Override]
+            public function resolve(string $host): array
+            {
+                unset($host);
+
+                return ['8.8.8.8', '8.8.4.4'];
+            }
+        };
+        $pinned = (new EndpointGuard($dns))->prepare('dns.google:22', ConnectionOptions::defaults());
+        self::assertSame(['8.8.8.8', '8.8.4.4'], $pinned->resolvedIps());
+        self::assertSame('8.8.8.8:22', $pinned->connectEndpoint());
+    }
+
     public function testRejectsEmptyEndpoint(): void
     {
         $this->expectException(SecurityException::class);
@@ -91,17 +107,31 @@ final class EndpointGuardTest extends TestCase
     {
         $guard = new EndpointGuard();
         self::assertSame('example.com', $guard->extractHost('ssh://example.com:22'));
+        self::assertSame('2001:db8::1', $guard->extractHost('ssh://[2001:DB8::1]:22'));
+        self::assertSame('foo]', $guard->extractHost('ssh://foo]'));
+        self::assertSame(443, $guard->extractPort('[::1]:443'));
         self::assertSame(2200, $guard->extractPort('ssh://example.com:2200'));
         self::assertSame('::1', $guard->extractHost('[::1]:22'));
         self::assertSame(22, $guard->extractPort('[::1]:22'));
+        self::assertSame(22, $guard->extractPort('[::1]:xyz'));
+        self::assertSame(22, $guard->extractPort('[:2222'));
         self::assertSame(22, $guard->extractPort('host'));
         self::assertSame(22, $guard->extractPort('[::1'));
+        self::assertSame('a22', $guard->extractHost('a22'));
+        self::assertSame('2001:db8::1', $guard->extractHost('[2001:DB8::1]:22'));
     }
 
     public function testControlCharsRejected(): void
     {
         $this->expectException(SecurityException::class);
         (new EndpointGuard())->prepare("host\x00name", ConnectionOptions::defaults()->allowPrivateAddresses());
+    }
+
+    public function testC0ControlCharsRejectedWithoutNul(): void
+    {
+        $this->expectException(SecurityException::class);
+        $this->expectExceptionMessage('Endpoint содержит управляющие символы');
+        (new EndpointGuard())->prepare("host\x01name", ConnectionOptions::defaults()->allowPrivateAddresses());
     }
 
     public function testLocalhostVariantsBlocked(): void
@@ -135,6 +165,14 @@ final class EndpointGuardTest extends TestCase
         self::assertSame('ssh://8.8.4.4:2222/extra', $replaced);
         $ipv6 = $method->invoke($guard, '[::1]:2200', '2001:db8::5');
         self::assertSame('[2001:db8::5]:2200', $ipv6);
+        $singleDigit = $method->invoke($guard, 'example.com:8', '8.8.8.8');
+        self::assertSame('8.8.8.8:8', $singleDigit);
+        $noPort = $method->invoke($guard, 'example.com', '8.8.8.8');
+        self::assertSame('8.8.8.8', $noPort);
+        $digitsOnlySuffix = $method->invoke($guard, 'a22', '8.8.8.8');
+        self::assertSame('8.8.8.8', $digitsOnlySuffix);
+        $badScheme = $method->invoke($guard, 'ssh://', '8.8.8.8');
+        self::assertSame('ssh://', $badScheme);
     }
 
     public function testUrlHostLowercaseWithoutBrackets(): void

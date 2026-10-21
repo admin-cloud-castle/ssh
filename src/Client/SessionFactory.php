@@ -63,10 +63,64 @@ final class SessionFactory implements SessionFactoryInterface
         $options ??= ConnectionOptions::defaults();
         $pinned = $this->guard->prepare($endpoint, $options);
         [$host, $port, $target] = $this->buildTarget($pinned, $endpoint);
-        $timeoutSeconds = max(1, (int) $options->connectTimeout());
-        $errno = 0;
+        $stream = $this->openTcpStream(
+            $target,
+            $this->positiveTimeoutSeconds($options->connectTimeout()),
+            $this->positiveTimeoutSeconds($options->ioTimeout()),
+            $host,
+            $port,
+        );
+        $session = new NativeSession($stream);
+        $this->hostKeys->verify($session->hostKeyFingerprint(), $options);
+        $session->login($auth);
+        $session->bindEndpoint($endpoint);
+
+        return $session;
+    }
+
+    /**
+     * Целые секунды таймаута с нижней границей 1.
+     *
+     * @param float $timeout Исходный таймаут из ConnectionOptions
+     *
+     * @return int Секунды ≥ 1
+     */
+    private function positiveTimeoutSeconds(float $timeout): int
+    {
+        return max(1, (int) $timeout);
+    }
+
+    /**
+     * Начальное значение errno до вызова stream_socket_client.
+     */
+    private function initialSocketErrno(): int
+    {
+        return 0;
+    }
+
+    /**
+     * Открывает TCP stream, выставляет I/O timeout или бросает ConnectionException.
+     *
+     * @param string $target         URI tcp://…
+     * @param int    $connectSeconds Таймаут connect ≥ 1
+     * @param int    $ioSeconds      Таймаут I/O ≥ 1
+     * @param string $host           Host для текста ошибки
+     * @param int    $port           Port для текста ошибки
+     *
+     * @return resource Открытый stream
+     *
+     * @throws ConnectionException При неудачном connect или set_timeout
+     */
+    private function openTcpStream(
+        string $target,
+        int $connectSeconds,
+        int $ioSeconds,
+        string $host,
+        int $port,
+    ): mixed {
+        $errno = $this->initialSocketErrno();
         $errstr = '';
-        $stream = @stream_socket_client($target, $errno, $errstr, (float) $timeoutSeconds);
+        $stream = @stream_socket_client($target, $errno, $errstr, $connectSeconds);
 
         if ($stream === false) {
             throw new ConnectionException(sprintf(
@@ -78,13 +132,32 @@ final class SessionFactory implements SessionFactoryInterface
             ));
         }
 
-        stream_set_timeout($stream, max(1, (int) $options->ioTimeout()));
-        $session = new NativeSession($stream);
-        $this->hostKeys->verify($session->hostKeyFingerprint(), $options);
-        $session->login($auth);
-        $session->bindEndpoint($endpoint);
+        return $this->applyIoTimeout($stream, $ioSeconds);
+    }
 
-        return $session;
+    /**
+     * Выставляет stream_set_timeout и возвращает тот же stream; при неуспехе — ConnectionException.
+     *
+     * @param resource $stream         TCP stream
+     * @param int      $timeoutSeconds I/O timeout ≥ 1
+     *
+     * @return resource Тот же $stream после set_timeout
+     *
+     * @throws ConnectionException Если stream_set_timeout вернул не true
+     */
+    private function applyIoTimeout(mixed $stream, int $timeoutSeconds): mixed
+    {
+        if (!is_resource($stream)) {
+            throw new ConnectionException('Не удалось выставить I/O timeout SSH stream');
+        }
+
+        $applied = stream_set_timeout($stream, $timeoutSeconds);
+
+        if ($applied !== true) {
+            throw new ConnectionException('Не удалось выставить I/O timeout SSH stream');
+        }
+
+        return $stream;
     }
 
     /**
@@ -136,15 +209,26 @@ final class SessionFactory implements SessionFactoryInterface
             return [$fallbackHost, $fallbackPort, $this->tcpTarget($fallbackHost, $fallbackPort)];
         }
 
-        $host = $parts['host'];
-
-        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
-            $host = substr($host, 1, -1);
-        }
-
+        $host = $this->unwrapBracketHost($parts['host']);
         $port = $parts['port'] ?? $fallbackPort;
 
         return [$host, $port, $this->tcpTarget($host, $port)];
+    }
+
+    /**
+     * Снимает квадратные скобки IPv6-литерала `[addr]`.
+     *
+     * @param string $host Host из parse_url или PinnedEndpoint
+     *
+     * @return string Host без обрамляющих []
+     */
+    private function unwrapBracketHost(string $host): string
+    {
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            return substr($host, 1, -1);
+        }
+
+        return $host;
     }
 
     /**
@@ -157,13 +241,25 @@ final class SessionFactory implements SessionFactoryInterface
      */
     private function tcpTarget(string $host, int $port): string
     {
-        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
-            $host = substr($host, 1, -1);
-        }
-
-        $isIpv6 = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false
-            || str_contains($host, ':');
+        $host = $this->unwrapBracketHost($host);
+        $isIpv6 = $this->needsIpv6Brackets($host);
 
         return 'tcp://' . ($isIpv6 ? '[' . $host . ']' : $host) . ':' . $port;
+    }
+
+    /**
+     * Нужны ли скобки вокруг host в tcp:// URI.
+     *
+     * @param string $host Host без скобок
+     *
+     * @return bool true для IPv6 или host с ':'
+     */
+    private function needsIpv6Brackets(string $host): bool
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            return true;
+        }
+
+        return str_contains($host, ':');
     }
 }

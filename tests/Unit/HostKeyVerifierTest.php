@@ -57,4 +57,13 @@ final class HostKeyVerifierTest extends TestCase
         (new HostKeyVerifier())->verify('fp', $options);
         self::assertFalse($options->strictHostKey());
     }
+
+    public function testWithTrustedHostKeysDefaultsToStrict(): void
+    {
+        $strict = ConnectionOptions::defaults()->withTrustedHostKeys(['fp']);
+        self::assertTrue($strict->strictHostKey());
+        self::assertSame(['fp'], $strict->trustedHostKeys());
+        $relaxed = ConnectionOptions::defaults()->withTrustedHostKeys(['fp'], false);
+        self::assertFalse($relaxed->strictHostKey());
+    }
 }

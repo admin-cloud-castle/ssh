@@ -50,6 +50,33 @@ final class ScpAndForwardTest extends TestCase
         (new ScpClient($session))->put($remotePath, $contents);
     }
 
+    public function testScpGetViaRemoteCommandIsPublicAlias(): void
+    {
+        $remotePath = '/remote/via.txt';
+        $session = $this->createMock(SessionInterface::class);
+        $session->expects(self::once())
+            ->method('exec')
+            ->with('scp -f ' . escapeshellarg($remotePath))
+            ->willReturn('via');
+        $scp = new ScpClient($session);
+        $getVia = new \ReflectionMethod(ScpClient::class, 'getViaRemoteCommand');
+        self::assertTrue($getVia->isPublic());
+        self::assertSame('via', $scp->getViaRemoteCommand($remotePath));
+    }
+
+    public function testScpPutViaRemoteCommandIsPublicAlias(): void
+    {
+        $remotePath = '/remote/via.bin';
+        $contents = 'payload';
+        $expected = 'printf %s ' . escapeshellarg(base64_encode($contents))
+            . ' | base64 -d > ' . escapeshellarg($remotePath);
+        $session = $this->createMock(SessionInterface::class);
+        $session->expects(self::once())->method('exec')->with($expected);
+        $putVia = new \ReflectionMethod(ScpClient::class, 'putViaRemoteCommand');
+        self::assertTrue($putVia->isPublic());
+        (new ScpClient($session))->putViaRemoteCommand($remotePath, $contents);
+    }
+
     public function testScpEmptyThrows(): void
     {
         $session = $this->createMock(SessionInterface::class);
@@ -148,6 +175,56 @@ final class ScpAndForwardTest extends TestCase
         $session->method('exec')->willReturn(base64_encode('ok'));
         $fwd = new LocalPortForward($session);
         self::assertSame('ok', $fwd->request('[::1]', 80, 'x'));
+        self::assertSame('ok', $fwd->request('[::ffff:192.0.2.1]', 80, 'x'));
+    }
+
+    public function testForwardRejectsEmptyBracketIpv6(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))->request('[]', 80, '');
+    }
+
+    public function testForwardRejectsInvalidBracketIpv6(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))->request('[not-ipv6]', 80, '');
+    }
+
+    public function testForwardRejectsUnbalancedBrackets(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))->request('[::1', 80, '');
+    }
+
+    public function testForwardAcceptsIpv4(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+        $session->method('exec')->willReturn(base64_encode('ok'));
+        self::assertSame('ok', (new LocalPortForward($session))->request('192.0.2.1', 80, 'x'));
+    }
+
+    public function testForwardRejectsHostnameWithTrailingDot(): void
+    {
+        $this->expectException(ConnectionException::class);
+        (new LocalPortForward($this->createMock(SessionInterface::class)))->request('example.com.', 80, '');
+    }
+
+    public function testIsSafeForwardHostBranchesViaReflection(): void
+    {
+        $method = new \ReflectionMethod(LocalPortForward::class, 'isSafeForwardHost');
+        $fwd = new LocalPortForward($this->createMock(SessionInterface::class));
+        self::assertFalse($method->invoke($fwd, ''));
+        self::assertFalse($method->invoke($fwd, '[]'));
+        self::assertFalse($method->invoke($fwd, '[::1'));
+        self::assertFalse($method->invoke($fwd, '::1]'));
+        self::assertTrue($method->invoke($fwd, '[::1]'));
+        self::assertTrue($method->invoke($fwd, '[::ffff:192.0.2.1]'));
+        self::assertTrue($method->invoke($fwd, '127.0.0.1'));
+        self::assertTrue($method->invoke($fwd, 'a'));
+        self::assertTrue($method->invoke($fwd, 'ab'));
+        self::assertFalse($method->invoke($fwd, '-bad'));
+        self::assertFalse($method->invoke($fwd, 'bad-'));
+        self::assertFalse($method->invoke($fwd, 'evil;rm'));
     }
 
     /**

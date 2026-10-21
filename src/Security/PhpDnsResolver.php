@@ -45,8 +45,8 @@ final class PhpDnsResolver implements DnsResolverInterface
     {
         $records = @dns_get_record($host, DNS_A + DNS_AAAA);
 
-        if ($records === false) { // @codeCoverageIgnore
-            return []; // @codeCoverageIgnore
+        if ($records === false) {
+            return [];
         }
 
         $ips = [];
@@ -61,7 +61,7 @@ final class PhpDnsResolver implements DnsResolverInterface
             }
         }
 
-        return array_values(array_unique($ips));
+        return $this->uniqueIps($ips);
     }
 
     /**
@@ -99,10 +99,22 @@ final class PhpDnsResolver implements DnsResolverInterface
     {
         $list = @gethostbynamel($host);
 
-        if ($list === false) { // @codeCoverageIgnore
-            return []; // @codeCoverageIgnore
+        if ($list === false) {
+            return [];
         }
 
-        return array_values(array_unique($list));
+        return $this->uniqueIps($list);
+    }
+
+    /**
+     * Уникальные IP с плотными ключами 0…n.
+     *
+     * @param list<string> $ips Сырой список (возможны дубли и дыры в ключах)
+     *
+     * @return list<string> Уникальные адреса
+     */
+    private function uniqueIps(array $ips): array
+    {
+        return array_values(array_unique($ips));
     }
 }

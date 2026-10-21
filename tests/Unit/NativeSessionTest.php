@@ -69,6 +69,7 @@ final class NativeSessionTest extends TestCase
             $session->login(AuthCredentials::withPassword('user', 'secret'));
             self::assertTrue($session->isConnected());
             $this->expectException(ConnectionException::class);
+            $this->expectExceptionMessage('SSH-сессия уже аутентифицирована');
             $session->login(AuthCredentials::withPassword('user', 'secret'));
         } finally {
             MockSshPeer::stop($process);
@@ -106,9 +107,9 @@ final class NativeSessionTest extends TestCase
 
     public function testRejectsNonResource(): void
     {
-        $this->expectException(\CloudCastle\Ssh\Exception\ConnectionException::class);
-        $session = new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
-        self::assertFalse($session->isConnected());
+        $this->expectException(ConnectionException::class);
+        $this->expectExceptionMessage('Ожидался stream resource для SSH');
+        new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
     }
 
     /**
