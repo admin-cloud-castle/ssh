@@ -100,7 +100,11 @@ final class ProcessPool
         $length = unpack('Nlen', $header);
         $need = is_array($length) ? ($length['len'] ?? null) : null;
 
-        if (!is_int($need) || $need < 1) {
+        if (!is_int($need)) {
+            return '';
+        }
+
+        if ($need < 1) {
             return '';
         }
 

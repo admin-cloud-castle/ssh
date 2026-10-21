@@ -10,6 +10,7 @@ use CloudCastle\Ssh\Wire\SshWire;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use ReflectionProperty;
 
 /**
  * Точечные тесты SshWire для Infection (padding, seq, MAC, CTR).
@@ -51,8 +52,10 @@ final class CoverageGapsWireTest extends TestCase
         $offset = 0;
         $packetLength = SshBinary::readUint32($raw, $offset);
         $paddingLength = ord($raw[4]);
+        $expectedPad = $this->expectedPlaintextPadding(strlen($payload));
+        self::assertSame($expectedPad, $paddingLength);
         self::assertSame(strlen($payload) + $paddingLength + 1, $packetLength);
-        self::assertGreaterThanOrEqual(4, $paddingLength);
+        self::assertSame(0, (4 + $packetLength) % 8);
         self::assertSame($payload, substr($raw, 5, strlen($payload)));
         fclose($client);
         fclose($server);
@@ -99,6 +102,14 @@ final class CoverageGapsWireTest extends TestCase
         $wire->send($outbound);
         $cipher = $this->readAll($server);
         self::assertGreaterThan(32, strlen($cipher));
+        $mac = substr($cipher, -32);
+        $encrypted = substr($cipher, 0, -32);
+        $packet = openssl_decrypt($encrypted, 'aes-128-ctr', $keys['c2sKey'], OPENSSL_RAW_DATA, $keys['c2sIv']);
+        self::assertNotFalse($packet);
+        self::assertSame(
+            hash_hmac('sha256', SshBinary::uint32(0) . $packet, $keys['c2sMac'], true),
+            $mac,
+        );
         $inbound = chr(52);
         $this->writeEncryptedPacket($server, $inbound, 0, $keys['s2cKey'], $keys['s2cIv'], $keys['s2cMac']);
         self::assertSame($inbound, $wire->receive());
@@ -171,6 +182,44 @@ final class CoverageGapsWireTest extends TestCase
         fclose($server);
     }
 
+    public function testCloseFclosesStreamAndWipesSecrets(): void
+    {
+        [$client, $server] = $this->pair();
+        $wire = new SshWire($client);
+        $keys = $this->sampleKeys();
+        $wire->enableEncryption(
+            $keys['c2sKey'],
+            $keys['s2cKey'],
+            $keys['c2sIv'],
+            $keys['s2cIv'],
+            $keys['c2sMac'],
+            $keys['s2cMac'],
+        );
+        $wire->send(chr(50));
+        $sendSeq = new ReflectionProperty(SshWire::class, 'sendSeq');
+        self::assertSame(1, $sendSeq->getValue($wire));
+        $wire->close();
+        self::assertFalse(is_resource($client));
+        self::assertSame(0, $sendSeq->getValue($wire));
+        $macKey = new ReflectionProperty(SshWire::class, 'clientToServerMacKey');
+        self::assertSame('', $macKey->getValue($wire));
+        $encrypted = new ReflectionProperty(SshWire::class, 'encrypted');
+        self::assertFalse($encrypted->getValue($wire));
+        fclose($server);
+    }
+
+    public function testPlaintextPaddingWhenComputedLengthIsFour(): void
+    {
+        [$client, $server] = $this->pair();
+        $wire = new SshWire($client);
+        $payload = str_repeat('x', 7);
+        $wire->send($payload);
+        $raw = $this->readAll($server);
+        self::assertSame(4, ord($raw[4]));
+        fclose($client);
+        fclose($server);
+    }
+
     /**
      * @return array{c2sKey: string, s2cKey: string, c2sIv: string, s2cIv: string, c2sMac: string, s2cMac: string}
      */
@@ -184,6 +233,25 @@ final class CoverageGapsWireTest extends TestCase
             'c2sMac' => str_repeat('E', 32),
             's2cMac' => str_repeat('F', 32),
         ];
+    }
+
+    /**
+     * RFC 4253 padding для plaintext block=8.
+     *
+     * @param int $payloadLength Длина payload без length/padding
+     *
+     * @return int Длина padding ≥ 4, выровненная по 8
+     */
+    private function expectedPlaintextPadding(int $payloadLength): int
+    {
+        $block = 8;
+        $paddingLength = $block - (($payloadLength + 5) % $block);
+
+        if ($paddingLength < 4) {
+            $paddingLength += $block;
+        }
+
+        return $paddingLength;
     }
 
     /**

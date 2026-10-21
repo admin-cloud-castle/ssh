@@ -12,6 +12,13 @@ namespace CloudCastle\Ssh\Async;
 final class NativeStreamSelector implements StreamSelectorInterface
 {
     /**
+     * Микросекунды таймаута stream_select, если аргумент не передан.
+     *
+     * @var int
+     */
+    public const DEFAULT_MICROSECONDS = 0;
+
+    /**
      * Вызывает stream_select с подавлением предупреждений (ошибка → false).
      *
      * @param array<int, resource>|null $read         Корзина на чтение или null
@@ -32,7 +39,7 @@ final class NativeStreamSelector implements StreamSelectorInterface
         ?array &$write,
         ?array &$except,
         int $seconds,
-        int $microseconds = 0,
+        int $microseconds = self::DEFAULT_MICROSECONDS,
     ): int|false {
         return @stream_select($read, $write, $except, $seconds, $microseconds);
     }

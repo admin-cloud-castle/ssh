@@ -174,6 +174,34 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
     private const CLIENT_ID = 'SSH-2.0-CloudCastle_ConnectManager_1.0';
 
     /**
+     * Длина cookie в SSH_MSG_KEXINIT.
+     *
+     * @var int
+     */
+    private const KEX_COOKIE_SIZE = 16;
+
+    /**
+     * Максимум байт read() без явного аргумента.
+     *
+     * @var int
+     */
+    private const DEFAULT_READ_MAX = 8192;
+
+    /**
+     * Начальный window size CHANNEL_OPEN.
+     *
+     * @var int
+     */
+    private const CHANNEL_WINDOW_SIZE = 2_097_152;
+
+    /**
+     * Максимальный размер пакета CHANNEL_OPEN.
+     *
+     * @var int
+     */
+    private const CHANNEL_MAX_PACKET = 32_768;
+
+    /**
      * Транспорт binary packets поверх TCP stream.
      */
     private readonly SshWire $wire;
@@ -395,7 +423,7 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
      * @throws ConnectionException При закрытой сессии
      */
     #[\Override]
-    public function read(int $maxLength = 8192): string
+    public function read(int $maxLength = self::DEFAULT_READ_MAX): string
     {
         $this->assertConnected();
         $this->pump(false);
@@ -463,7 +491,7 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
         $line = '';
 
         while (!str_ends_with($line, "\n")) {
-            $chunk = @fgets($stream, 512);
+            $chunk = @fgets($stream);
 
             if ($chunk === false) { // @codeCoverageIgnore
                 throw new ConnectionException('SSH identification read не удался'); // @codeCoverageIgnore
@@ -505,7 +533,7 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
      */
     private function buildClientKexInit(): string
     {
-        return chr(self::MSG_KEXINIT) . random_bytes(16)
+        return chr(self::MSG_KEXINIT) . random_bytes(self::KEX_COOKIE_SIZE)
             . SshBinary::nameList(['diffie-hellman-group14-sha256'])
             . SshBinary::nameList(['rsa-sha2-256', 'rsa-sha2-512', 'ssh-rsa', 'ssh-ed25519'])
             . SshBinary::nameList(['aes128-ctr'])
@@ -737,8 +765,8 @@ final class NativeSession implements SessionInterface // NOSONAR php:S1448 — �
             chr(self::MSG_CHANNEL_OPEN)
             . SshBinary::sshString('session')
             . SshBinary::uint32($this->localChannel)
-            . SshBinary::uint32(2_097_152)
-            . SshBinary::uint32(32_768),
+            . SshBinary::uint32(self::CHANNEL_WINDOW_SIZE)
+            . SshBinary::uint32(self::CHANNEL_MAX_PACKET),
         );
         $payload = $this->expectType(self::MSG_CHANNEL_OPEN_CONFIRMATION);
         $offset = 1;

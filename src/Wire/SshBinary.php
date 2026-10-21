@@ -10,6 +10,13 @@ namespace CloudCastle\Ssh\Wire;
 final class SshBinary
 {
     /**
+     * Размер SSH uint32 в байтах.
+     *
+     * @var int
+     */
+    public const UINT32_SIZE = 4;
+
+    /**
      * Кодирует беззнаковое 32-битное целое в big-endian (4 байта).
      *
      * @param int $value Значение 0…2³²−1 (старшие биты обрезает pack)
@@ -33,14 +40,14 @@ final class SshBinary
      */
     public static function readUint32(string $buffer, int &$offset): int
     {
-        if ($offset + 4 > strlen($buffer)) {
+        if ($offset + self::UINT32_SIZE > strlen($buffer)) {
             $offset = strlen($buffer);
 
             return 0;
         }
 
-        $chunk = substr($buffer, $offset, 4);
-        $offset += 4;
+        $chunk = substr($buffer, $offset, self::UINT32_SIZE);
+        $offset += self::UINT32_SIZE;
         $parts = unpack('Nval', $chunk);
 
         if (!is_array($parts)) { // @codeCoverageIgnore
@@ -76,7 +83,7 @@ final class SshBinary
     {
         $length = self::readUint32($buffer, $offset);
 
-        if ($length < 0 || $offset + $length > strlen($buffer)) {
+        if ($offset + $length > strlen($buffer)) {
             return '';
         }
 

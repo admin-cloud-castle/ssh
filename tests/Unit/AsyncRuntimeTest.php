@@ -356,7 +356,8 @@ final class AsyncRuntimeTest extends TestCase
         self::assertCount(5, $parameters);
         self::assertSame('microseconds', $parameters[4]->getName());
         self::assertTrue($parameters[4]->isDefaultValueAvailable());
-        self::assertSame(0, $parameters[4]->getDefaultValue());
+        self::assertSame(NativeStreamSelector::DEFAULT_MICROSECONDS, $parameters[4]->getDefaultValue());
+        self::assertSame(0, NativeStreamSelector::DEFAULT_MICROSECONDS);
     }
 
     public function testNativeStreamSelectorSelectOmitsFifthArgument(): void

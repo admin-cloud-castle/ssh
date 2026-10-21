@@ -21,6 +21,41 @@ use CloudCastle\Ssh\Exception\ConnectionException;
 final class SshWire
 {
     /**
+     * Размер блока plaintext-пакета до NEWKEYS.
+     *
+     * @var int
+     */
+    private const PLAINTEXT_BLOCK_SIZE = 8;
+
+    /**
+     * Размер блока AES-128-CTR после NEWKEYS.
+     *
+     * @var int
+     */
+    private const CIPHER_BLOCK_SIZE = 16;
+
+    /**
+     * Минимальная длина padding по RFC 4253.
+     *
+     * @var int
+     */
+    private const MIN_PADDING_SIZE = 4;
+
+    /**
+     * Байты length(4)+padlen(1), входящие в выравнивание padding.
+     *
+     * @var int
+     */
+    private const PACKET_ALIGN_OVERHEAD = 5;
+
+    /**
+     * Длина HMAC-SHA256 в байтах.
+     *
+     * @var int
+     */
+    private const HMAC_SIZE = 32;
+
+    /**
      * Sequence number исходящих пакетов (для MAC).
      */
     private int $sendSeq = 0;
@@ -118,11 +153,11 @@ final class SshWire
      */
     public function send(string $payload): void
     {
-        $block = $this->encrypted ? 16 : 8;
+        $block = $this->encrypted ? self::CIPHER_BLOCK_SIZE : self::PLAINTEXT_BLOCK_SIZE;
         $payloadLength = strlen($payload);
-        $paddingLength = $block - (($payloadLength + 5) % $block);
+        $paddingLength = $block - (($payloadLength + self::PACKET_ALIGN_OVERHEAD) % $block);
 
-        if ($paddingLength < 4) {
+        if ($paddingLength < self::MIN_PADDING_SIZE) {
             $paddingLength += $block;
         }
 
@@ -144,7 +179,10 @@ final class SshWire
                 throw new ConnectionException('SSH encrypt не удался'); // @codeCoverageIgnore
             }
 
-            $this->clientToServerIv = $this->advanceCtr($this->clientToServerIv, (int) (strlen($packet) / 16));
+            $this->clientToServerIv = $this->advanceCtr(
+                $this->clientToServerIv,
+                (int) (strlen($packet) / self::CIPHER_BLOCK_SIZE),
+            );
             $packet = $encrypted . $mac;
         }
 
@@ -177,7 +215,7 @@ final class SshWire
      */
     private function receivePlaintext(): string
     {
-        $header = $this->readExact(5);
+        $header = $this->readExact(self::PACKET_ALIGN_OVERHEAD);
         $offset = 0;
         $packetLength = SshBinary::readUint32($header, $offset);
         $paddingLength = ord($header[4]);
@@ -197,11 +235,11 @@ final class SshWire
      */
     private function receiveEncrypted(): string
     {
-        $plainHeader = $this->decryptBlock($this->readExact(16));
+        $plainHeader = $this->decryptBlock($this->readExact(self::CIPHER_BLOCK_SIZE));
         $offset = 0;
         $packetLength = SshBinary::readUint32($plainHeader, $offset);
         $paddingLength = ord($plainHeader[4]);
-        $remaining = $packetLength + 4 - 16;
+        $remaining = $packetLength + SshBinary::UINT32_SIZE - self::CIPHER_BLOCK_SIZE;
 
         if ($remaining < 0) { // @codeCoverageIgnore
             throw new ConnectionException('SSH: некорректный packet_length'); // @codeCoverageIgnore
@@ -212,7 +250,7 @@ final class SshWire
         $this->assertMac($packet);
         ++$this->recvSeq;
 
-        return substr($packet, 5, $packetLength - $paddingLength - 1);
+        return substr($packet, self::PACKET_ALIGN_OVERHEAD, $packetLength - $paddingLength - 1);
     }
 
     /**
@@ -225,7 +263,7 @@ final class SshWire
      *
      * @throws ConnectionException При openssl_decrypt === false
      */
-    private function decryptBlock(string $cipher, int $length = 16): string
+    private function decryptBlock(string $cipher, int $length = self::CIPHER_BLOCK_SIZE): string
     {
         $plain = openssl_decrypt(
             $cipher,
@@ -239,7 +277,10 @@ final class SshWire
             throw new ConnectionException('SSH decrypt не удался'); // @codeCoverageIgnore
         }
 
-        $this->serverToClientIv = $this->advanceCtr($this->serverToClientIv, (int) ($length / 16));
+        $this->serverToClientIv = $this->advanceCtr(
+            $this->serverToClientIv,
+            (int) ($length / self::CIPHER_BLOCK_SIZE),
+        );
 
         return $plain;
     }
@@ -253,7 +294,7 @@ final class SshWire
      */
     private function assertMac(string $packet): void
     {
-        $mac = $this->readExact(32);
+        $mac = $this->readExact(self::HMAC_SIZE);
         $expected = hash_hmac(
             'sha256',
             SshBinary::uint32($this->recvSeq) . $packet,

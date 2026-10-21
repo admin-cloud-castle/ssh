@@ -234,7 +234,7 @@ final class MockSshServer // NOSONAR php:S1448 — монолитный test dou
         $this->send(
             chr(91)
             . SshBinary::uint32($sender)
-            . SshBinary::uint32(0)
+            . SshBinary::uint32(1)
             . SshBinary::uint32(2_097_152)
             . SshBinary::uint32(32_768),
         );

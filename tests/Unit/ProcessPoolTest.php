@@ -132,6 +132,18 @@ final class ProcessPoolTest extends TestCase
         self::assertSame(['ok' => 1, 'n' => 42], json_decode($body, true));
     }
 
+    public function testReadWorkerPayloadZeroDeclaredLength(): void
+    {
+        $pool = new ProcessPool(1, true);
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        self::assertNotFalse($pair);
+        [$left, $right] = $pair;
+        fwrite($left, pack('N', 0));
+        fclose($left);
+        self::assertSame('', $pool->readWorkerPayload($right));
+        fclose($right);
+    }
+
     public function testReadWorkerPayloadShortHeader(): void
     {
         $pool = new ProcessPool(1, true);
