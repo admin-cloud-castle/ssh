@@ -74,13 +74,13 @@ final class LocalPortForward
 
     /**
      * Hostname / IPv4 / IPv6 без shell-метасимволов.
+     *
+     * @param string $host Кандидат в remote host
+     *
+     * @return bool true, если host безопасен для подстановки в remote-команду
      */
     private function isSafeForwardHost(string $host): bool
     {
-        if ($host === '') {
-            return false;
-        }
-
         if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
             $inner = substr($host, 1, -1);
 

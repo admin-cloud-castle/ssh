@@ -46,10 +46,8 @@ final class ComparisonLoader
      */
     public static function features(): array
     {
-        /** @var list<array{feature: string, packages: array<string, bool>}> $rows */
-        $rows = self::namedBoolRows('comparison-features.json', 'feature');
-
-        return $rows;
+        /** @var list<array{feature: string, packages: array<string, bool>}> */
+        return self::namedBoolRows('comparison-features.json', 'feature');
     }
 
     /**
@@ -59,10 +57,8 @@ final class ComparisonLoader
      */
     public static function security(): array
     {
-        /** @var list<array{standard: string, packages: array<string, bool>}> $rows */
-        $rows = self::namedBoolRows('comparison-security.json', 'standard');
-
-        return $rows;
+        /** @var list<array{standard: string, packages: array<string, bool>}> */
+        return self::namedBoolRows('comparison-security.json', 'standard');
     }
 
     /**
@@ -72,10 +68,8 @@ final class ComparisonLoader
      */
     public static function quality(): array
     {
-        /** @var list<array{metric: string, packages: array<string, bool>}> $rows */
-        $rows = self::namedBoolRows('comparison-quality.json', 'metric');
-
-        return $rows;
+        /** @var list<array{metric: string, packages: array<string, bool>}> */
+        return self::namedBoolRows('comparison-quality.json', 'metric');
     }
 
     /**

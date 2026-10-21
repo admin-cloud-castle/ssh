@@ -109,7 +109,9 @@ final class NativeSessionTest extends TestCase
     {
         $this->expectException(ConnectionException::class);
         $this->expectExceptionMessage('Ожидался stream resource для SSH');
-        new NativeSession('nope', AuthCredentials::withPassword('u', 'p'));
+        $stream = 'nope';
+        $session = new NativeSession($stream, AuthCredentials::withPassword('u', 'p'));
+        self::assertFalse($session->isConnected());
     }
 
     /**

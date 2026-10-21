@@ -13,7 +13,6 @@ use CloudCastle\Ssh\Exception\SecurityException;
 use CloudCastle\Ssh\Security\EndpointGuard;
 use CloudCastle\Ssh\Security\HostKeyVerifier;
 use CloudCastle\Ssh\Security\PinnedEndpoint;
-use CloudCastle\Ssh\Tests\Support\FalseTimeoutStreamWrapper;
 use CloudCastle\Ssh\Tests\Support\MockSshPeer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -173,13 +172,9 @@ final class SessionFactoryTest extends TestCase
 
     public function testApplyIoTimeoutThrowsWhenSetTimeoutFails(): void
     {
-        if (!in_array('ccsshfalse', stream_get_wrappers(), true)) {
-            stream_wrapper_register('ccsshfalse', FalseTimeoutStreamWrapper::class);
-        }
-
         $factory = new SessionFactory();
         $method = new ReflectionMethod(SessionFactory::class, 'applyIoTimeout');
-        $stream = fopen('ccsshfalse://timeout', 'r+');
+        $stream = tmpfile();
         self::assertNotFalse($stream);
         $this->expectException(ConnectionException::class);
         $this->expectExceptionMessage('Не удалось выставить I/O timeout SSH stream');
