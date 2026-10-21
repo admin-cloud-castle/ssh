@@ -10,14 +10,23 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Модульные тесты заглушки Ssh.
+ * Базовые тесты фасада (совместимость со скаффолдом).
+ */
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.MissingImport")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+ * @SuppressWarnings("PHPMD.UnusedLocalVariable")
  */
 #[CoversClass(Ssh::class)]
 final class SshTest extends TestCase
 {
-    /**
-     * Проверяет, что name() возвращает composer-имя пакета.
-     */
     public function testNameReturnsComposerPackageName(): void
     {
         $package = new Ssh();
@@ -25,9 +34,6 @@ final class SshTest extends TestCase
         self::assertSame('cloud-castle/ssh', $package->name());
     }
 
-    /**
-     * Проверяет, что abort() бросает SshException.
-     */
     public function testAbortThrowsSshException(): void
     {
         $package = new Ssh();

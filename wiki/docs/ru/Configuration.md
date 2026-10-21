@@ -1,14 +1,21 @@
+**ru** · [en](../en/Configuration.md) · [de](../de/Configuration.md) · [fr](../fr/Configuration.md) · [es](../es/Configuration.md) · [it](../it/Configuration.md)
+
 # Configuration
 
-Документация пакета `cloud-castle/ssh` (RU).
+`ConnectionOptions`:
 
-Заполните содержимое по мере разработки. Авто-блоки:
+| Опция | По умолчанию | Смысл |
+| --- | --- | --- |
+| `connectTimeout` | 10.0 | Таймаут TCP, сек |
+| `ioTimeout` | 30.0 | Таймаут I/O stream, сек |
+| `blockPrivateAddresses` | true | SSRF-guard |
+| `trustedHostKeys` | null | Список SHA-256 fingerprints |
+| `strictHostKey` | false | Требовать совпадение fingerprint |
 
-<!-- FEATURES:START -->
-<!-- FEATURES:END -->
+```php
+$options = ConnectionOptions::defaults()
+    ->withTrustedHostKeys(['BASE64...'], true)
+    ->allowPrivateAddresses(); // только доверенная сеть / тесты
+```
 
-<!-- BENCH:START -->
-<!-- BENCH:END -->
-
-<!-- THRESHOLDS:START -->
-<!-- THRESHOLDS:END -->
+**ru** · [en](../en/Configuration.md) · [de](../de/Configuration.md) · [fr](../fr/Configuration.md) · [es](../es/Configuration.md) · [it](../it/Configuration.md)

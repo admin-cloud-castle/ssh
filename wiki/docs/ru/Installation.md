@@ -1,14 +1,13 @@
+**ru** · [en](../en/Installation.md) · [de](../de/Installation.md) · [fr](../fr/Installation.md) · [es](../es/Installation.md) · [it](../it/Installation.md)
+
 # Installation
 
-Документация пакета `cloud-castle/ssh` (RU).
+Требования: PHP 8.1+, расширения `openssl`, `gmp`. Опционально `pcntl`/`sockets` для ProcessPool.
 
-Заполните содержимое по мере разработки. Авто-блоки:
+```bash
+composer require cloud-castle/ssh
+```
 
-<!-- FEATURES:START -->
-<!-- FEATURES:END -->
+Пакет на Packagist: [cloud-castle/ssh](https://packagist.org/packages/cloud-castle/ssh).
 
-<!-- BENCH:START -->
-<!-- BENCH:END -->
-
-<!-- THRESHOLDS:START -->
-<!-- THRESHOLDS:END -->
+**ru** · [en](../en/Installation.md) · [de](../de/Installation.md) · [fr](../fr/Installation.md) · [es](../es/Installation.md) · [it](../it/Installation.md)

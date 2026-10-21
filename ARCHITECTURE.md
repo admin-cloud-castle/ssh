@@ -6,12 +6,14 @@
 
 Слои Deptrac (см. `deptrac.yaml`):
 
-1. **Contract** — публичные интерфейсы
-2. **Core** — реализация
-3. **Exception** — исключения пакета
-4. **External** — адаптеры к внешним зависимостям (минимум)
-5. **Tests** — не входит в runtime
+1. **Contract** — публичные интерфейсы (`Session*`, `AuthCredentials`, options)
+2. **Exception** — иерархия `SshException`
+3. **Core** — `Client`, `Session`, `Wire`, `Auth`, `Security`, `Async`, `Pool`, `Process`, `Scp`, `Forward`
+4. **Tests** — PHPUnit + TCP MockSshPeer (без fork, совместимо с coverage)
 
-Правило: зависимости направлены внутрь к Contract; Core не тянет Tests.
+Правило: Contract не зависит от Exception/Core; Core → Contract + Exception; Tests → все слои.
+
+Поток: `Ssh` → `SessionFactory` (+ EndpointGuard / HostKeyVerifier) → `NativeSession`
+(Wire + KEX + auth) → exec / SCP / forward / `openSubsystem()`.
 
 Подробности — wiki Architecture и PHPDoc в коде.

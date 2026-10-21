@@ -1,0 +1,167 @@
+[
+    {
+        "feature": "PHP 8.1+",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "Pure-PHP SSH-2 (без ext-ssh2 / libssh2)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "feature": "Password auth",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": true,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "Publickey auth (RSA / Ed25519)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": true,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "Remote exec / shell command",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": true,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "SCP get/put",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": true,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "Local port-forward helper",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "SSH subsystem API (openSubsystem)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "Fibers async runtime (awaitReadable/Writable)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "feature": "Session pool (idle reuse)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "feature": "Process pool (pcntl_fork map)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "feature": "Host-key fingerprint verify (strict)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "SSRF-guard + DNS-pinning по умолчанию",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": false
+        }
+    },
+    {
+        "feature": "Ноль Composer runtime-зависимостей",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": false,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": false,
+            "ext-ssh2": true
+        }
+    },
+    {
+        "feature": "SFTP (встроенный клиент или SSH subsystem API)",
+        "packages": {
+            "ours": true,
+            "phpseclib/phpseclib": true,
+            "spatie/ssh": false,
+            "herzult/php-ssh": false,
+            "league/flysystem-sftp-v3": true,
+            "ext-ssh2": true
+        }
+    }
+]

@@ -1,0 +1,445 @@
+<?php
+
+declare(strict_types=1);
+
+namespace CloudCastle\Ssh\Wire;
+
+use CloudCastle\Ssh\Exception\ConnectionException;
+
+/**
+ * Обмен SSH binary packets: plaintext (до NEWKEYS) и AES-128-CTR + HMAC-SHA256.
+ *
+ * Ведёт sequence numbers send/recv и CTR IV для обоих направлений.
+ *
+ * @SuppressWarnings("PHPMD.ErrorControlOperator")
+ * @SuppressWarnings("PHPMD.CyclomaticComplexity")
+ * @SuppressWarnings("PHPMD.NPathComplexity")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ShortVariable")
+ */
+final class SshWire
+{
+    /**
+     * Размер блока plaintext-пакета до NEWKEYS.
+     *
+     * @var int
+     */
+    private const PLAINTEXT_BLOCK_SIZE = 8;
+
+    /**
+     * Размер блока AES-128-CTR после NEWKEYS.
+     *
+     * @var int
+     */
+    private const CIPHER_BLOCK_SIZE = 16;
+
+    /**
+     * Минимальная длина padding по RFC 4253.
+     *
+     * @var int
+     */
+    private const MIN_PADDING_SIZE = 4;
+
+    /**
+     * Байты length(4)+padlen(1), входящие в выравнивание padding.
+     *
+     * @var int
+     */
+    private const PACKET_ALIGN_OVERHEAD = 5;
+
+    /**
+     * Длина HMAC-SHA256 в байтах.
+     *
+     * @var int
+     */
+    private const HMAC_SIZE = 32;
+
+    /**
+     * Sequence number исходящих пакетов (для MAC).
+     */
+    private int $sendSeq = 0;
+
+    /**
+     * Sequence number входящих пакетов (для MAC).
+     */
+    private int $recvSeq = 0;
+
+    /**
+     * Флаг режима после SSH_MSG_NEWKEYS.
+     */
+    private bool $encrypted = false;
+
+    /**
+     * Ключ AES-128 client→server.
+     */
+    private string $clientToServerKey = '';
+
+    /**
+     * Ключ AES-128 server→client.
+     */
+    private string $serverToClientKey = '';
+
+    /**
+     * IV/counter AES-CTR client→server (16 байт).
+     */
+    private string $clientToServerIv = '';
+
+    /**
+     * IV/counter AES-CTR server→client (16 байт).
+     */
+    private string $serverToClientIv = '';
+
+    /**
+     * Ключ HMAC-SHA256 client→server.
+     */
+    private string $clientToServerMacKey = '';
+
+    /**
+     * Ключ HMAC-SHA256 server→client.
+     */
+    private string $serverToClientMacKey = '';
+
+    /**
+     * TCP/stream ресурс соединения; null после close().
+     *
+     * @var resource|null
+     */
+    private $stream;
+
+    /**
+     * Привязывает wire к уже открытому stream.
+     *
+     * @param resource $stream Сокет или stream в режиме чтения/записи
+     */
+    public function __construct($stream)
+    {
+        $this->stream = $stream;
+    }
+
+    /**
+     * Включает шифрование и MAC после обмена NEWKEYS (ключи из KDF).
+     *
+     * @param string $clientToServerKey    16 байт AES client→server
+     * @param string $serverToClientKey    16 байт AES server→client
+     * @param string $clientToServerIv     16 байт начального CTR IV client→server
+     * @param string $serverToClientIv     16 байт начального CTR IV server→client
+     * @param string $clientToServerMacKey Ключ HMAC client→server
+     * @param string $serverToClientMacKey Ключ HMAC server→client
+     */
+    public function enableEncryption(
+        string $clientToServerKey,
+        string $serverToClientKey,
+        string $clientToServerIv,
+        string $serverToClientIv,
+        string $clientToServerMacKey,
+        string $serverToClientMacKey,
+    ): void {
+        $this->clientToServerKey = $clientToServerKey;
+        $this->serverToClientKey = $serverToClientKey;
+        $this->clientToServerIv = $clientToServerIv;
+        $this->serverToClientIv = $serverToClientIv;
+        $this->clientToServerMacKey = $clientToServerMacKey;
+        $this->serverToClientMacKey = $serverToClientMacKey;
+        $this->encrypted = true;
+    }
+
+    /**
+     * Отправляет SSH payload (первый байт — message type) как binary packet.
+     *
+     * @param string $payload Содержимое пакета без length/padding
+     *
+     * @throws ConnectionException При ошибке encrypt/write или закрытом stream
+     */
+    public function send(string $payload): void
+    {
+        $block = $this->encrypted ? self::CIPHER_BLOCK_SIZE : self::PLAINTEXT_BLOCK_SIZE;
+        $payloadLength = strlen($payload);
+        $paddingLength = $block - (($payloadLength + self::PACKET_ALIGN_OVERHEAD) % $block);
+
+        if ($paddingLength < self::MIN_PADDING_SIZE) {
+            $paddingLength += $block;
+        }
+
+        $packetLength = $payloadLength + $paddingLength + 1;
+        $padding = random_bytes($paddingLength);
+        $packet = SshBinary::uint32($packetLength) . chr($paddingLength) . $payload . $padding;
+
+        if ($this->encrypted) {
+            $mac = hash_hmac('sha256', SshBinary::uint32($this->sendSeq) . $packet, $this->clientToServerMacKey, true);
+            $encrypted = openssl_encrypt(
+                $packet,
+                'aes-128-ctr',
+                $this->clientToServerKey,
+                OPENSSL_RAW_DATA,
+                $this->clientToServerIv,
+            );
+
+            if ($encrypted === false) { // @codeCoverageIgnore
+                throw new ConnectionException('SSH encrypt не удался'); // @codeCoverageIgnore
+            }
+
+            $this->clientToServerIv = $this->advanceCtr(
+                $this->clientToServerIv,
+                (int) (strlen($packet) / self::CIPHER_BLOCK_SIZE),
+            );
+            $packet = $encrypted . $mac;
+        }
+
+        $this->writeAll($packet);
+        ++$this->sendSeq;
+    }
+
+    /**
+     * Читает следующий binary packet и возвращает payload без padding.
+     *
+     * @return string Payload (message type + тело)
+     *
+     * @throws ConnectionException При ошибке read/decrypt/MAC или закрытом stream
+     */
+    public function receive(): string
+    {
+        if (!$this->encrypted) {
+            return $this->receivePlaintext();
+        }
+
+        return $this->receiveEncrypted();
+    }
+
+    /**
+     * Читает plaintext binary packet (до NEWKEYS).
+     *
+     * @return string Payload без padding
+     *
+     * @throws ConnectionException При ошибке чтения
+     */
+    private function receivePlaintext(): string
+    {
+        $header = $this->readExact(self::PACKET_ALIGN_OVERHEAD);
+        $offset = 0;
+        $packetLength = SshBinary::readUint32($header, $offset);
+        $paddingLength = ord($header[4]);
+        $rest = $this->readExact($packetLength - 1);
+        $payloadLength = $packetLength - $paddingLength - 1;
+        ++$this->recvSeq;
+
+        return substr($rest, 0, $payloadLength);
+    }
+
+    /**
+     * Читает AES-CTR + HMAC-SHA256 packet после NEWKEYS.
+     *
+     * @return string Payload без padding
+     *
+     * @throws ConnectionException При decrypt/MAC/длине
+     */
+    private function receiveEncrypted(): string
+    {
+        $plainHeader = $this->decryptBlock($this->readExact(self::CIPHER_BLOCK_SIZE));
+        $offset = 0;
+        $packetLength = SshBinary::readUint32($plainHeader, $offset);
+        $paddingLength = ord($plainHeader[4]);
+        $remaining = $packetLength + SshBinary::UINT32_SIZE - self::CIPHER_BLOCK_SIZE;
+
+        if ($remaining < 0) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH: некорректный packet_length'); // @codeCoverageIgnore
+        }
+
+        $restPlain = $remaining > 0 ? $this->decryptBlock($this->readExact($remaining), $remaining) : '';
+        $packet = $plainHeader . $restPlain;
+        $this->assertMac($packet);
+        ++$this->recvSeq;
+
+        return substr($packet, self::PACKET_ALIGN_OVERHEAD, $packetLength - $paddingLength - 1);
+    }
+
+    /**
+     * Расшифровывает блок(и) AES-128-CTR и сдвигает IV.
+     *
+     * @param string $cipher Текст ciphertext
+     * @param int    $length Число байт для сдвига CTR (0 = один блок 16)
+     *
+     * @return string Plaintext
+     *
+     * @throws ConnectionException При openssl_decrypt === false
+     */
+    private function decryptBlock(string $cipher, int $length = self::CIPHER_BLOCK_SIZE): string
+    {
+        $plain = openssl_decrypt(
+            $cipher,
+            'aes-128-ctr',
+            $this->serverToClientKey,
+            OPENSSL_RAW_DATA,
+            $this->serverToClientIv,
+        );
+
+        if ($plain === false) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH decrypt не удался'); // @codeCoverageIgnore
+        }
+
+        $this->serverToClientIv = $this->advanceCtr(
+            $this->serverToClientIv,
+            (int) ($length / self::CIPHER_BLOCK_SIZE),
+        );
+
+        return $plain;
+    }
+
+    /**
+     * Проверяет HMAC-SHA256 пакета.
+     *
+     * @param string $packet Полный plaintext packet (length||pad||payload||padding)
+     *
+     * @throws ConnectionException При несовпадении MAC
+     */
+    private function assertMac(string $packet): void
+    {
+        $mac = $this->readExact(self::HMAC_SIZE);
+        $expected = hash_hmac(
+            'sha256',
+            SshBinary::uint32($this->recvSeq) . $packet,
+            $this->serverToClientMacKey,
+            true,
+        );
+
+        if (!hash_equals($expected, $mac)) { // @codeCoverageIgnore
+            throw new ConnectionException('SSH MAC mismatch'); // @codeCoverageIgnore
+        }
+    }
+
+    /**
+     * Закрывает underlying stream, обнуляет ссылку и затирает криптоматериал.
+     */
+    public function close(): void
+    {
+        $stream = $this->stream;
+        $this->stream = null;
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        $this->wipeSecrets();
+    }
+
+    /**
+     * Затирает ключи/IV/MAC и сбрасывает sequence numbers после закрытия соединения.
+     */
+    private function wipeSecrets(): void
+    {
+        $this->clientToServerKey = '';
+        $this->serverToClientKey = '';
+        $this->clientToServerIv = '';
+        $this->serverToClientIv = '';
+        $this->clientToServerMacKey = '';
+        $this->serverToClientMacKey = '';
+        $this->encrypted = false;
+        $this->sendSeq = 0;
+        $this->recvSeq = 0;
+    }
+
+    /**
+     * Гарантированно записывает все байты в stream.
+     *
+     * @param string $data Полный пакет (plaintext или ciphertext||MAC)
+     *
+     * @throws ConnectionException При fwrite false/0 или закрытом stream
+     */
+    private function writeAll(string $data): void
+    {
+        $stream = $this->openStream();
+        $offset = 0;
+        $length = strlen($data);
+
+        while ($offset < $length) {
+            $written = @fwrite($stream, substr($data, $offset));
+
+            if ($written === false || $written === 0) { // @codeCoverageIgnore
+                throw new ConnectionException('SSH write не удался'); // @codeCoverageIgnore
+            }
+
+            $offset += $written;
+        }
+    }
+
+    /**
+     * Читает ровно $length байт из stream.
+     *
+     * @param int $length Требуемое число байт (≥0)
+     *
+     * @return string Ровно $length байт
+     *
+     * @throws ConnectionException При EOF/ошибке fread или закрытом stream
+     */
+    private function readExact(int $length): string
+    {
+        $stream = $this->openStream();
+        $buffer = '';
+
+        while (strlen($buffer) < $length) {
+            $need = $length - strlen($buffer);
+
+            if ($need < 1) { // @codeCoverageIgnore
+                break; // @codeCoverageIgnore
+            }
+
+            $chunk = @fread($stream, $need);
+
+            if ($chunk === false || $chunk === '') { // @codeCoverageIgnore
+                throw new ConnectionException('SSH read не удался / соединение закрыто'); // @codeCoverageIgnore
+            }
+
+            $buffer .= $chunk;
+        }
+
+        return $buffer;
+    }
+
+    /**
+     * Возвращает открытый stream или бросает исключение.
+     *
+     * @return resource Активный stream
+     *
+     * @throws ConnectionException Если stream уже закрыт
+     */
+    private function openStream()
+    {
+        $stream = $this->stream;
+
+        if (!is_resource($stream)) {
+            throw new ConnectionException('SSH stream закрыт');
+        }
+
+        return $stream;
+    }
+
+    /**
+     * Увеличивает 16-байтовый big-endian CTR counter на $blocks.
+     *
+     * @param string $counterIv Текущий IV/counter (длина 16)
+     * @param int    $blocks    Число AES-блоков для продвижения; &lt;1 — без изменений
+     *
+     * @return string Новый counter той же длины
+     */
+    private function advanceCtr(string $counterIv, int $blocks): string
+    {
+        if ($blocks < 1) { // @codeCoverageIgnore
+            return $counterIv; // @codeCoverageIgnore
+        }
+
+        $value = $counterIv;
+
+        for ($i = 0; $i < $blocks; ++$i) {
+            for ($j = 15; $j >= 0; --$j) {
+                $byte = (ord($value[$j]) + 1) & 0xFF;
+                $value[$j] = chr($byte);
+
+                if ($byte !== 0) {
+                    break;
+                }
+            }
+        }
+
+        return $value;
+    }
+}

@@ -11,6 +11,17 @@
 
 ## [Unreleased]
 
+### Добавлено
+
+- Нативный SSH-2 клиент: password/publickey, exec, SCP, local port-forward
+- `openSubsystem()` для внешних пакетов (SFTP — отдельно)
+- Fibers async, SessionPool, ProcessPool (pcntl)
+- Host-key verify, SSRF-guard / DNS-pinning
+
+### Удалено
+
+- Встроенный SFTP (будет отдельный пакет поверх subsystem API)
+
 ## [0.0.1] — 2026-10-20
 
 ### Добавлено

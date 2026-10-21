@@ -1,14 +1,29 @@
+**ru** · [en](../en/Architecture.md) · [de](../de/Architecture.md) · [fr](../fr/Architecture.md) · [es](../es/Architecture.md) · [it](../it/Architecture.md)
+
 # Architecture
 
-Документация пакета `cloud-castle/ssh` (RU).
+Слои Deptrac:
 
-Заполните содержимое по мере разработки. Авто-блоки:
+1. **Contract** — публичные интерфейсы
+2. **Exception** — иерархия `SshException`
+3. **Core** — Client, Session, Wire, Auth, Security, Async, Pool, Process, Scp, Forward
+4. **Tests** — PHPUnit + TCP MockSshPeer
 
-<!-- FEATURES:START -->
-<!-- FEATURES:END -->
+```mermaid
+flowchart TB
+  Ssh --> SessionFactory
+  SessionFactory --> EndpointGuard
+  SessionFactory --> HostKeyVerifier
+  SessionFactory --> NativeSession
+  NativeSession --> SshWire
+  NativeSession --> PublicKeySigner
+  Ssh --> SessionPool
+  Ssh --> FiberAsyncRuntime
+  Ssh --> ProcessPool
+  Ssh --> ScpClient
+  Ssh --> LocalPortForward
+```
 
-<!-- BENCH:START -->
-<!-- BENCH:END -->
+Подробности — корневой [ARCHITECTURE.md](https://github.com/admin-cloud-castle/ssh/blob/main/ARCHITECTURE.md).
 
-<!-- THRESHOLDS:START -->
-<!-- THRESHOLDS:END -->
+**ru** · [en](../en/Architecture.md) · [de](../de/Architecture.md) · [fr](../fr/Architecture.md) · [es](../es/Architecture.md) · [it](../it/Architecture.md)
