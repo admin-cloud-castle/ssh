@@ -138,8 +138,8 @@ final class SessionFactory implements SessionFactoryInterface
     /**
      * Выставляет stream_set_timeout и возвращает тот же stream; при неуспехе — ConnectionException.
      *
-     * @param resource $stream         TCP stream
-     * @param int      $timeoutSeconds I/O timeout ≥ 1
+     * @param mixed $stream         TCP stream или не-resource (тогда исключение)
+     * @param int   $timeoutSeconds I/O timeout ≥ 1
      *
      * @return resource Тот же $stream после set_timeout
      *

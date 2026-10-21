@@ -164,8 +164,8 @@ final class SessionFactoryTest extends TestCase
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         self::assertNotFalse($pair);
         [$left, $right] = $pair;
-        $method->invoke($factory, $left, 3);
-        self::assertTrue(is_resource($left));
+        $timed = $method->invoke($factory, $left, 3);
+        self::assertSame($left, $timed);
         fclose($left);
         fclose($right);
     }
