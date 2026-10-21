@@ -153,7 +153,7 @@ final class SessionFactory implements SessionFactoryInterface
 
         $applied = stream_set_timeout($stream, $timeoutSeconds);
 
-        if ($applied !== true) {
+        if (!$applied) {
             throw new ConnectionException('Не удалось выставить I/O timeout SSH stream');
         }
 
